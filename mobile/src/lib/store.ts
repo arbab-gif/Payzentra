@@ -170,10 +170,12 @@ const build = (set: StoreApi<State>["setState"]): State => ({
   setTheme: (theme) => set({ theme }),
   setHideBalances: (hideBalances) => set({ hideBalances }),
   setViewMode: (viewMode) => set({ viewMode }),
+  // Sign out ends the session but keeps device-local settings (unlock code, Face ID)
+  // so the customer re-opens with the same quick-unlock next time.
   signOut: () =>
     set((s) => ({
       session: signedOut,
-      account: s.account ? { ...s.account, unlockCode: null, unlockFailures: 0, biometrics: false } : null,
+      account: s.account ? { ...s.account, unlockFailures: 0 } : null,
     })),
   resetAll: () => set({ account: null, session: signedOut, kyc: emptyKyc }),
 });
@@ -261,6 +263,9 @@ export const ROUTES = {
   status: "/verify/status",
   home: "/home",
   profile: "/profile",
+  profileAccount: "/profile/account",
+  profileSecurity: "/profile/security",
+  profilePreferences: "/profile/preferences",
   activity: "/activity",
   login: "/login",
   loginMfa: "/login/mfa",
@@ -312,6 +317,9 @@ export function canVisit(route: string, s: Snapshot): boolean {
     case ROUTES.setUnlockCode:
       return inApp;
     case ROUTES.profile:
+    case ROUTES.profileAccount:
+    case ROUTES.profileSecurity:
+    case ROUTES.profilePreferences:
     case ROUTES.activity:
       return inApp;
     case ROUTES.secure:

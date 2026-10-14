@@ -5,7 +5,10 @@ import Home from "@/app/home";
 import Welcome from "@/app/index";
 import Login from "@/app/login/index";
 import LoginMfa from "@/app/login/mfa";
-import Profile from "@/app/profile";
+import Profile from "@/app/profile/index";
+import ProfileAccount from "@/app/profile/account";
+import ProfilePreferences from "@/app/profile/preferences";
+import ProfileSecurity from "@/app/profile/security";
 import Biometrics from "@/app/security/biometrics";
 import ForgotCode from "@/app/security/forgot-code";
 import UnlockCode from "@/app/security/unlock-code";
@@ -334,12 +337,39 @@ export const FLOWS: Flow[] = [
   },
   {
     title: "Profile",
-    summary: "From the avatar on Home: verification level, sign-in and security, appearance.",
+    summary: "From the avatar on Home: who you are, verification and help, then every settings area. Log out at the end.",
     cases: [
       { name: "Not verified", Screen: Profile, state: inApp },
+      { name: "Verification in progress", Screen: Profile, state: { ...inApp, kyc: kycConfirmed } },
       { name: "In review", Screen: Profile, state: { ...inApp, kyc: kycPending } },
-      { name: "Verified · security on", Screen: Profile, state: { ...verified, account: account({ biometrics: true, passkey: true, mfaEnabled: true }) } },
-      { name: "Face ID and passkeys unavailable", Screen: Profile, state: { ...verified, scenarios: scenarios({ biometric: "unavailable", passkey: "unsupported" }) } },
+      { name: "Verification unsuccessful", Screen: Profile, state: { ...inApp, kyc: kycRejected } },
+      { name: "Verified", Screen: Profile, state: verified },
+    ],
+  },
+  {
+    title: "Profile · Account",
+    summary: "Personal details from the ID record, verification level, account number, limits and statements.",
+    cases: [
+      { name: "Not verified", Screen: ProfileAccount, state: inApp },
+      { name: "In review", Screen: ProfileAccount, state: { ...inApp, kyc: kycPending } },
+      { name: "Verified", Screen: ProfileAccount, state: verified },
+    ],
+  },
+  {
+    title: "Profile · Security",
+    summary: "Unlock code and Face ID for this device, change password, two-step sign-in, transaction PIN.",
+    cases: [
+      { name: "Nothing set up yet", Screen: ProfileSecurity, state: verified },
+      { name: "Everything on", Screen: ProfileSecurity, state: { ...verified, account: account({ biometrics: true, mfaEnabled: true }) } },
+      { name: "Face ID unavailable", Screen: ProfileSecurity, state: { ...verified, scenarios: scenarios({ biometric: "unavailable" }) } },
+    ],
+  },
+  {
+    title: "Profile · Preferences",
+    summary: "Appearance, hiding balances, and notification settings.",
+    cases: [
+      { name: "Preferences", Screen: ProfilePreferences, state: verified },
+      { name: "Balances hidden", Screen: ProfilePreferences, state: { ...verified, hideBalances: true } },
     ],
   },
   {

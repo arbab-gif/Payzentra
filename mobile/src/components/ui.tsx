@@ -24,7 +24,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
-import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
+import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { usePreview } from "@/lib/preview";
 import { useApp } from "@/lib/store";
 import { fonts, radius, useColors, type Colors, noWebOutline } from "@/lib/theme";
@@ -68,7 +68,7 @@ export function Text({
   );
 }
 
-// ---------- Logo & flag ----------
+// ---------- Logo ----------
 
 export function Logo({ size = 30, wordmark = true, onDark }: { size?: number; wordmark?: boolean; onDark?: boolean }) {
   // Unique gradient id: on web, two logos on screen (e.g. a page still in the stack) would otherwise share one.
@@ -91,16 +91,6 @@ export function Logo({ size = 30, wordmark = true, onDark }: { size?: number; wo
         </Text>
       )}
     </View>
-  );
-}
-
-export function NgFlag() {
-  return (
-    <Svg width={22} height={15} viewBox="0 0 3 2" accessibilityLabel="Nigeria">
-      <Rect width="3" height="2" fill="#fff" />
-      <Rect width="1" height="2" fill="#008751" />
-      <Rect x="2" width="1" height="2" fill="#008751" />
-    </Svg>
   );
 }
 

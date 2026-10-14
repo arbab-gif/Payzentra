@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Bell, History, Megaphone } from "lucide-react-native";
+import { Bell, History } from "lucide-react-native";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BottomNav, NAV_SPACE } from "@/components/BottomNav";
@@ -9,12 +9,13 @@ import {
   greeting,
   HeroBalance,
   HeroWash,
-  NoticeCard,
+  IconCircle,
+  openNotifications,
   QUICK_ACTIONS,
   QuickAction,
   RecommendedTile,
   Skeleton,
-  soon,
+  UpdateNotice,
   useHomeModel,
   VerifyBanner,
   type HomeModel,
@@ -23,9 +24,8 @@ import { WebHome } from "@/components/home/WebHome";
 import { Loading } from "@/components/Screen";
 import { FadeIn, Text } from "@/components/ui";
 import { useWebLayout } from "@/lib/layout";
-import { ROUTES, useApp } from "@/lib/store";
+import { ROUTES } from "@/lib/store";
 import { useColors } from "@/lib/theme";
-import { toast } from "@/lib/toast";
 
 export default function Home() {
   const m = useHomeModel();
@@ -38,9 +38,7 @@ export default function Home() {
 function MobileHome({ m }: { m: HomeModel }) {
   const c = useColors();
   const insets = useSafeAreaInsets();
-  const dark = useApp((s) => s.theme) === "dark";
   const recommended = m.items.find((i) => i.priority === "Recommended");
-  const circle = { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: dark ? "rgba(255,255,255,0.25)" : c.surface2 } as const;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
@@ -66,17 +64,12 @@ function MobileHome({ m }: { m: HomeModel }) {
             <Text variant="caption" tone="muted">{greeting()}</Text>
             <Text variant="bodyStrong" numberOfLines={1}>{[m.firstName, m.lastName].filter(Boolean).join(" ")}</Text>
           </Pressable>
-          <Pressable onPress={() => router.push(ROUTES.activity as never)} accessibilityRole="button" accessibilityLabel="Activity" style={({ pressed }) => ({ ...circle, opacity: pressed ? 0.7 : 1 })}>
+          <IconCircle label="Activity" onPress={() => router.push(ROUTES.activity as never)}>
             <History size={20} color={c.text} />
-          </Pressable>
-          <Pressable
-            onPress={() => toast({ tone: "info", title: "Notifications", body: "Your notification centre opens here." })}
-            accessibilityRole="button"
-            accessibilityLabel={m.items.length ? `Notifications, ${m.items.length} new` : "Notifications"}
-            style={({ pressed }) => ({ ...circle, opacity: pressed ? 0.7 : 1 })}
-          >
+          </IconCircle>
+          <IconCircle label={m.items.length ? `Notifications, ${m.items.length} new` : "Notifications"} onPress={openNotifications}>
             <Bell size={20} color={c.text} />
-          </Pressable>
+          </IconCircle>
         </View>
 
         {m.loading ? (
@@ -109,7 +102,7 @@ function MobileHome({ m }: { m: HomeModel }) {
 
               {m.showUpdate && (
                 <FadeIn delay={160}>
-                  <NoticeCard tone="primary" Icon={Megaphone} tag="Update" title="Card top-ups pause Sunday, 2–4 AM" body="Planned maintenance. Bank transfers keep working as normal." onPress={() => soon("This update")} />
+                  <UpdateNotice />
                 </FadeIn>
               )}
 

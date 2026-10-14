@@ -1,4 +1,3 @@
-import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import {
@@ -7,11 +6,9 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Bitcoin,
-  Check,
   ChevronRight,
   Clock3,
   CloudOff,
-  Copy,
   CreditCard,
   Eye,
   EyeOff,
@@ -26,7 +23,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   Smartphone,
-  X,
   Zap,
   type LucideIcon,
 } from "lucide-react-native";
@@ -34,7 +30,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Image, Pressable, View } from "react-native";
 import { BIOMETRIC_NAME } from "@/components/DevicePrompt";
 import { CoinLogo, CoinStack, MerchantLogo } from "@/components/Logos";
-import { Button, haptic, LinkText, NgFlag, StatusIcon, Text } from "@/components/ui";
+import { Button, haptic, LinkText, StatusIcon, Text } from "@/components/ui";
 import { activeHome, money, newHome, type HomeData, type Txn } from "@/lib/demoData";
 import { usePreview, useSeed } from "@/lib/preview";
 import { kycNext, ROUTES, useApp, type Account, type Kyc } from "@/lib/store";
@@ -49,10 +45,10 @@ type Priority = "Required" | "Recommended" | "Info";
 export type ActionItem = { key: string; priority: Priority; Icon: LucideIcon; title: string; body: string; cta: string; onPress: () => void };
 
 const HIDDEN = "••••••";
-const WHITE = "#ffffff";
 export const CRYPTO = "#f7931a";
 export const soon = (what: string) => toast({ tone: "info", title: `${what} opens here`, body: "That flow isn't part of this build yet." });
 export const locked = () => toast({ tone: "info", title: "Available once your wallet is active", body: "Verify your identity to activate your wallet." });
+export const openNotifications = () => toast({ tone: "info", title: "Notifications", body: "Your notification centre opens here." });
 export const explainHeld = (held: number) =>
   toast({ tone: "info", title: `₦${money(held)} on hold`, body: "Money set aside for a payment that's still processing. It's released or returned when the payment finishes." });
 
@@ -94,10 +90,8 @@ export type HomeModel = {
   firstName: string;
   lastName: string;
   initials: string;
-  accountNo: string;
   items: ActionItem[];
   showUpdate: boolean;
-  dismissUpdate: () => void;
   hide: boolean;
   toggleHide: () => void;
   loading: boolean;
@@ -120,7 +114,6 @@ export function useHomeModel(): HomeModel | null {
   const seed = useSeed<{ loading: boolean }>();
   const [loading, setLoading] = useState(seed.loading ?? !preview);
   const [refreshing, setRefreshing] = useState(false);
-  const [updateDismissed, setUpdateDismissed] = useState(false);
   const { firstName, lastName, initials } = useCustomerName();
 
   // First load shows a skeleton rather than empty or zero values.
@@ -141,7 +134,7 @@ export function useHomeModel(): HomeModel | null {
   if (!account.biometrics && biometric !== "unavailable")
     items.push({ key: "bio", priority: "Recommended", Icon: ScanFace, title: `Unlock with ${BIOMETRIC_NAME}`, body: "Open the app without typing your unlock code.", cta: "Turn on", onPress: () => router.push(`${ROUTES.biometrics}?from=home` as never) });
   if (!account.passkey && passkey !== "unsupported")
-    items.push({ key: "passkey", priority: "Recommended", Icon: KeyRound, title: "Add a passkey", body: "Log in on a new phone without your password.", cta: "Add", onPress: () => router.push(ROUTES.profile as never) });
+    items.push({ key: "passkey", priority: "Recommended", Icon: KeyRound, title: "Add a passkey", body: "Log in on a new phone without your password.", cta: "Add", onPress: () => router.push(ROUTES.profileSecurity as never) });
   if (!account.mfaEnabled)
     items.push({ key: "mfa", priority: "Recommended", Icon: ShieldCheck, title: "Turn on two-step sign-in", body: "Add an authenticator app so only you can log in.", cta: "Set up", onPress: () => router.push(ROUTES.secure as never) });
 
@@ -154,10 +147,8 @@ export function useHomeModel(): HomeModel | null {
     firstName,
     lastName,
     initials,
-    accountNo: ACCOUNT_NO,
     items,
-    showUpdate: verified && scenario === "active" && !updateDismissed,
-    dismissUpdate: () => setUpdateDismissed(true),
+    showUpdate: verified && scenario === "active",
     hide,
     toggleHide: () => setHide(!hide),
     loading,
@@ -178,176 +169,18 @@ export const QUICK_ACTIONS: { label: string; Icon: LucideIcon; main?: boolean }[
   { label: "Buy crypto", Icon: Bitcoin },
 ];
 
-// ---------- Balance card ----------
-
-export function BalanceCard({
-  verified,
-  status,
-  hide,
-  onToggleHide,
-  naira,
-  held,
-  cryptoNgn,
-  pricedAt,
-  accountNo,
-  onRetry,
-}: {
-  verified: boolean;
-  status: Kyc["status"];
-  hide: boolean;
-  onToggleHide: () => void;
-  /** null = couldn't load (never shown as zero). */
-  naira: number | null;
-  held: number;
-  /** undefined = couldn't load; null = no crypto held. */
-  cryptoNgn: number | null | undefined;
-  pricedAt: string;
-  accountNo: string;
-  onRetry: () => void;
-}) {
-  const [int, frac] = money(naira ?? 0).split(".");
-  const glass = "rgba(255,255,255,0.18)";
-  const crypto = !verified ? "locked" : cryptoNgn;
-  return (
-    <View style={{ paddingBottom: 46 }}>
-      {/* Crypto summary card tucked behind; its visible strip is the indicative crypto total. */}
-      <Pressable
-        onPress={() => (verified ? soon("Crypto") : locked())}
-        accessibilityRole="button"
-        accessibilityLabel={
-          crypto === "locked"
-            ? "Crypto opens once your wallet is active"
-            : crypto === undefined
-              ? "Crypto value unavailable"
-              : crypto === null
-                ? "Crypto. Buy BTC, ETH, USDT or USDC"
-                : `Crypto, about ${hide ? "hidden" : `${money(crypto, 0)} naira`}, indicative value, updated ${pricedAt}`
-        }
-        style={{ position: "absolute", left: 10, right: 10, top: 40, bottom: 0, borderRadius: 24, overflow: "hidden" }}
-      >
-        <LinearGradient colors={["#c46f0c", "#5c3005"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, justifyContent: "flex-end", paddingHorizontal: 16, paddingBottom: 13 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            {crypto === undefined || crypto === "locked" ? (
-              <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" }}>
-                {crypto === "locked" ? <Lock size={12} color={WHITE} strokeWidth={2.4} /> : <Bitcoin size={14} color={WHITE} strokeWidth={2.4} />}
-              </View>
-            ) : (
-              <CoinStack codes={crypto === null ? ["BTC", "ETH", "USDT", "USDC"] : ["BTC", "USDT"]} size={22} ring="#9a5207" />
-            )}
-            <Text variant="smallStrong" style={{ color: WHITE, flex: 1 }} numberOfLines={1}>
-              {crypto === "locked"
-                ? "Crypto opens once your wallet is active"
-                : crypto === undefined
-                  ? "Crypto value unavailable"
-                  : crypto === null
-                    ? "Buy your first crypto"
-                    : `Crypto ≈ ₦${hide ? HIDDEN : money(crypto, 0)}`}
-            </Text>
-            {typeof crypto === "number" && <Text variant="caption" style={{ color: "rgba(255,255,255,0.75)" }}>Indicative · {pricedAt}</Text>}
-            <ChevronRight size={16} color="rgba(255,255,255,0.8)" />
-          </View>
-        </LinearGradient>
-      </Pressable>
-
-      {/* Naira wallet card */}
-      <LinearGradient colors={["#8a9bff", "#667cff", "#3b3fd8"]} locations={[0, 0.4, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 24, padding: 18, overflow: "hidden", minHeight: 188 }}>
-        <View pointerEvents="none" style={{ position: "absolute", right: -50, top: -50, width: 170, height: 170, borderRadius: 85, borderWidth: 1, borderColor: "rgba(255,255,255,0.22)" }} />
-        <View pointerEvents="none" style={{ position: "absolute", right: -18, top: -18, width: 106, height: 106, borderRadius: 53, borderWidth: 1, borderColor: "rgba(255,255,255,0.22)" }} />
-        <View pointerEvents="none" style={{ position: "absolute", left: -40, bottom: -80, width: 190, height: 190, borderRadius: 95, backgroundColor: "rgba(255,255,255,0.08)" }} />
-
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: glass, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill }}>
-            <NgFlag />
-            <Text variant="caption" style={{ color: WHITE, fontFamily: fonts.semibold }}>Naira wallet</Text>
-          </View>
-          {verified && (
-            <Pressable
-              onPress={onToggleHide}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={hide ? "Show balances" : "Hide balances"}
-              style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: glass, alignItems: "center", justifyContent: "center" }}
-            >
-              {hide ? <EyeOff size={17} color={WHITE} /> : <Eye size={17} color={WHITE} />}
-            </Pressable>
-          )}
-        </View>
-
-        {!verified ? (
-          // Not active yet: no balance figure, so nothing suggests the wallet is funded.
-          <View style={{ marginTop: 18, gap: 4 }}>
-            <Text variant="heading" style={{ color: WHITE }}>{status === "pending" ? "Activation in review" : "Wallet not active yet"}</Text>
-            <Text variant="small" style={{ color: "rgba(255,255,255,0.85)", maxWidth: 360 }}>
-              {status === "pending"
-                ? "We're checking your details. Your wallet activates as soon as you're verified."
-                : status === "rejected"
-                  ? "Your verification needs another look before we can activate your wallet."
-                  : "Verify your identity to activate your wallet and get your account number."}
-            </Text>
-          </View>
-        ) : (
-          <Text variant="caption" style={{ color: "rgba(255,255,255,0.8)", marginTop: 18 }}>Available balance</Text>
-        )}
-        {!verified ? null : naira === null ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 }}>
-            <CloudOff size={20} color={WHITE} />
-            <Text variant="heading" style={{ color: WHITE, flex: 1 }}>Balance unavailable</Text>
-            <Pressable onPress={onRetry} accessibilityRole="button" style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: WHITE, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 7 }}>
-              <RefreshCw size={14} color="#3b3fd8" />
-              <Text variant="caption" style={{ color: "#3b3fd8", fontFamily: fonts.bold }}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={{ flexDirection: "row", alignItems: "flex-end" }} accessible accessibilityLabel={hide ? "Balance hidden" : `Balance ${int} naira ${frac} kobo`}>
-            <Text style={{ fontFamily: fonts.extrabold, fontSize: 36, lineHeight: 44, letterSpacing: -1.4, color: WHITE }}>{hide ? `₦${HIDDEN}` : `₦${int}`}</Text>
-            {!hide && <Text style={{ fontFamily: fonts.bold, fontSize: 22, lineHeight: 36, color: "rgba(255,255,255,0.7)" }}>.{frac}</Text>}
-          </View>
-        )}
-        {verified && naira !== null && held > 0 && (
-          <Pressable onPress={() => explainHeld(held)} accessibilityRole="button" accessibilityLabel={`${hide ? "Some money" : `${money(held)} naira`} on hold for a payment in progress`} style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-            <Hourglass size={13} color="rgba(255,255,255,0.85)" />
-            <Text variant="caption" style={{ color: "rgba(255,255,255,0.85)" }}>{`₦${hide ? HIDDEN : money(held)} on hold · payment in progress`}</Text>
-          </Pressable>
-        )}
-
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 20 }}>
-          {verified ? (
-            <Pressable
-              onPress={async () => {
-                await Clipboard.setStringAsync(accountNo);
-                haptic("success");
-                toast({ tone: "success", title: "Account number copied" });
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Account number ${accountNo.split("").join(" ")}. Copy`}
-              style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-            >
-              <Text variant="smallStrong" style={{ color: WHITE, letterSpacing: 0.8 }}>{`${accountNo.slice(0, 3)} ${accountNo.slice(3, 6)} ${accountNo.slice(6)}`}</Text>
-              <Copy size={14} color="rgba(255,255,255,0.85)" />
-            </Pressable>
-          ) : (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Lock size={13} color="rgba(255,255,255,0.8)" />
-              <Text variant="caption" style={{ color: "rgba(255,255,255,0.8)" }}>Account number after verification</Text>
-            </View>
-          )}
-          <Text style={{ fontFamily: fonts.extrabold, fontSize: 14, letterSpacing: -0.2, color: WHITE }}>Payzentra</Text>
-        </View>
-      </LinearGradient>
-    </View>
-  );
-}
-
 // ---------- Pieces ----------
 
+/** Round header button (activity, notifications), glassy over the Home wash in dark mode. */
 export function IconCircle({ children, label, onPress }: { children: ReactNode; label: string; onPress: () => void }) {
   const c = useColors();
+  const dark = useApp((s) => s.theme) === "dark";
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: c.surface2, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+      style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: dark ? "rgba(255,255,255,0.25)" : c.surface2, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 })}
     >
       {children}
     </Pressable>
@@ -379,15 +212,6 @@ export function QuickAction({ label, Icon, main, locked: isLocked }: { label: st
       </View>
       <Text variant="caption" tone={isLocked ? "muted" : "text"} numberOfLines={1}>{label}</Text>
     </Pressable>
-  );
-}
-
-export function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10, paddingHorizontal: 4 }}>
-      <Text variant="bodyStrong" style={{ flex: 1, fontSize: 18 }} accessibilityRole="header">{title}</Text>
-      {action}
-    </View>
   );
 }
 
@@ -546,54 +370,6 @@ export function VerifyBanner({ kyc }: { kyc: Kyc }) {
   );
 }
 
-export function AccountStatus({ kyc }: { kyc: Kyc }) {
-  const c = useColors();
-  const v = verificationInfo(kyc);
-  const s = { tone: v.tone, Icon: v.Icon, label: v.label, body: v.body };
-  const soft = { primary: c.primarySoft, success: c.successSoft, warning: c.warningSoft, danger: c.dangerSoft }[s.tone];
-  return (
-    <Pressable
-      onPress={() => (kyc.status === "verified" ? router.push(ROUTES.profile as never) : router.push(kycNext(kyc) as never))}
-      accessibilityRole="button"
-      accessibilityLabel={`Verification: ${s.label}. ${s.body}`}
-      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 12, padding: 16, opacity: pressed ? 0.7 : 1 })}
-    >
-      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: soft, alignItems: "center", justifyContent: "center" }}>
-        <s.Icon size={20} color={c[s.tone]} />
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Text variant="smallStrong" style={{ fontSize: 15 }}>Verification</Text>
-          <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: soft }}>
-            <Text variant="caption" style={{ color: c[s.tone] }}>{s.label}</Text>
-          </View>
-        </View>
-        <Text variant="small" tone="muted">{s.body}</Text>
-      </View>
-      <ChevronRight size={18} color={c.subtle} />
-    </Pressable>
-  );
-}
-
-export function ActionRow({ item: it }: { item: ActionItem }) {
-  const c = useColors();
-  const required = it.priority === "Required";
-  const tone: Tone = required ? "danger" : "primary";
-  return (
-    <View style={{ flexDirection: "row", gap: 12, padding: 16, borderTopWidth: 1, borderTopColor: c.border }}>
-      <StatusIcon icon={it.Icon} tone={tone} size={42} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="caption" style={{ color: c[tone], letterSpacing: 0.4 }}>{it.priority.toUpperCase()}</Text>
-        <Text variant="smallStrong" style={{ fontSize: 15 }}>{it.title}</Text>
-        <Text variant="small" tone="muted">{it.body}</Text>
-        <View style={{ flexDirection: "row", marginTop: 10 }}>
-          <Button title={it.cta} size="sm" variant={required ? "primary" : "secondary"} onPress={it.onPress} />
-        </View>
-      </View>
-    </View>
-  );
-}
-
 export function Skeleton() {
   const c = useColors();
   const bar = (w: number | `${number}%`, h: number, r = 8) => <View style={{ width: w, height: h, borderRadius: r, backgroundColor: c.surface2 }} />;
@@ -658,59 +434,6 @@ export function ActivityPanel({ m, limit = 5 }: { m: HomeModel; limit?: number }
   );
 }
 
-export function ActionCentrePanel({ m }: { m: HomeModel }) {
-  const c = useColors();
-  return (
-    <View>
-      <SectionHeader title="Action centre" />
-      <View style={{ backgroundColor: c.surface, borderRadius: radius.lg, overflow: "hidden" }}>
-        <AccountStatus kyc={m.kyc} />
-        {m.items.length ? (
-          m.items.map((it) => <ActionRow key={it.key} item={it} />)
-        ) : (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: c.border }}>
-            <Check size={18} color={c.success} />
-            <Text variant="small" tone="muted">You&apos;re all set. Nothing needs your attention.</Text>
-          </View>
-        )}
-      </View>
-    </View>
-  );
-}
-
-export function UpdatePanel({ m }: { m: HomeModel }) {
-  const c = useColors();
-  if (!m.showUpdate) return null;
-  return (
-    <View>
-      <SectionHeader title="Updates" />
-      <View style={{ flexDirection: "row", gap: 14, padding: 16, borderRadius: radius.lg, backgroundColor: c.surface }}>
-        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.infoSoft, alignItems: "center", justifyContent: "center" }}>
-          <Megaphone size={18} color={c.info} />
-        </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text variant="caption" style={{ color: c.info }}>Planned maintenance · Sun 19 Oct</Text>
-          <Text variant="smallStrong" style={{ fontSize: 15 }}>Card top-ups pause from 2 to 4 AM</Text>
-          <Text variant="small" tone="muted">Bank transfers and crypto keep working as normal.</Text>
-        </View>
-        <Pressable onPress={m.dismissUpdate} hitSlop={10} accessibilityRole="button" accessibilityLabel="Dismiss update">
-          <X size={18} color={c.subtle} />
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-export function NotificationBadge({ count }: { count: number }) {
-  const c = useColors();
-  if (!count) return null;
-  return (
-    <View style={{ position: "absolute", top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: c.primary, borderWidth: 2, borderColor: c.bg, alignItems: "center", justifyContent: "center" }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 10, lineHeight: 12, color: c.onPrimary }}>{count}</Text>
-    </View>
-  );
-}
-
 export function signOut() {
   useApp.getState().signOut();
   router.replace("/login");
@@ -721,7 +444,7 @@ export function startAgain() {
   router.replace("/");
 }
 
-// ---------- Phone Home (Figma "Home · Verified") ----------
+// ---------- Home hero and notices (Figma "Home · Verified"; phone and desktop) ----------
 
 /** Indigo wash behind the top of Home: navy into the page, plus a soft glow. */
 export function HeroWash() {
@@ -739,7 +462,7 @@ export function HeroWash() {
  * Centred naira balance, clearly labelled: available balance, money on hold, and the
  * indicative crypto value. Before the wallet is active there's no balance figure at all.
  */
-export function HeroBalance({ m }: { m: HomeModel }) {
+export function HeroBalance({ m, large }: { m: HomeModel; large?: boolean }) {
   const c = useColors();
   const dark = useApp((st) => st.theme) === "dark";
   const naira = m.failing ? null : m.data.naira;
@@ -749,7 +472,7 @@ export function HeroBalance({ m }: { m: HomeModel }) {
   if (!m.verified) {
     const pending = m.kyc.status === "pending";
     return (
-      <View style={{ alignItems: "center", gap: 10, paddingTop: 28, paddingBottom: 8, paddingHorizontal: 28 }}>
+      <View style={{ alignItems: "center", gap: 10, paddingTop: large ? 40 : 28, paddingBottom: 8, paddingHorizontal: 28 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: dark ? "rgba(255,255,255,0.12)" : c.surface, borderWidth: 1, borderColor: dark ? "rgba(255,255,255,0.14)" : c.border }}>
           {pending ? <Clock3 size={13} color={c.warning} /> : <Lock size={13} color={c.muted} />}
           <Text variant="caption" style={{ color: pending ? c.warning : c.muted, fontFamily: fonts.semibold }}>Naira wallet</Text>
@@ -765,8 +488,8 @@ export function HeroBalance({ m }: { m: HomeModel }) {
   }
 
   return (
-    <View style={{ alignItems: "center", gap: 8, paddingTop: 28, paddingBottom: 16, paddingHorizontal: 20 }}>
-      <Text variant="caption" tone="muted">Available balance</Text>
+    <View style={{ alignItems: "center", gap: 8, paddingTop: large ? 40 : 28, paddingBottom: 16, paddingHorizontal: 20 }}>
+      <Text variant={large ? "small" : "caption"} tone="muted">Available balance</Text>
       {naira === null ? (
         <View style={{ alignItems: "center", gap: 10, paddingTop: 6 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -778,13 +501,13 @@ export function HeroBalance({ m }: { m: HomeModel }) {
       ) : (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Text
-            style={{ fontFamily: fonts.extrabold, fontSize: 46, lineHeight: 54, letterSpacing: -1.8, color: c.text }}
+            style={{ fontFamily: fonts.extrabold, fontSize: large ? 64 : 46, lineHeight: large ? 74 : 54, letterSpacing: large ? -2.4 : -1.8, color: c.text }}
             accessibilityLabel={m.hide ? "Available balance hidden" : `Available balance ${whole} naira`}
           >
             {m.hide ? `₦${HIDDEN}` : `₦${whole}`}
           </Text>
           <Pressable onPress={m.toggleHide} hitSlop={10} accessibilityRole="button" accessibilityLabel={m.hide ? "Show balances" : "Hide balances"}>
-            {m.hide ? <EyeOff size={20} color={c.text} /> : <Eye size={20} color={c.text} />}
+            {m.hide ? <EyeOff size={large ? 24 : 20} color={c.text} /> : <Eye size={large ? 24 : 20} color={c.text} />}
           </Pressable>
         </View>
       )}
@@ -861,6 +584,11 @@ export function NoticeCard({ tone, Icon, tag, title, body, onPress }: { tone: No
       <ChevronRight size={18} color={c.subtle} />
     </Pressable>
   );
+}
+
+/** The planned-maintenance update shown on Home. */
+export function UpdateNotice() {
+  return <NoticeCard tone="primary" Icon={Megaphone} tag="Update" title="Card top-ups pause Sunday, 2–4 AM" body="Planned maintenance. Bank transfers keep working as normal." onPress={() => soon("This update")} />;
 }
 
 /** The highlighted recommendation tile (e.g. turn on two-step sign-in). */
