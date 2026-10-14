@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, TextInput, View } from "react-native";
+import { usePreview } from "@/lib/preview";
 import { fonts, radius, useColors, noWebOutline } from "@/lib/theme";
 import { Text } from "./ui";
 
@@ -28,14 +29,16 @@ export function OtpInput({
 }) {
   const c = useColors();
   const ref = useRef<TextInput>(null);
-  const [focused, setFocused] = useState(false);
+  // Gallery frames show the focused look without taking focus.
+  const preview = !!usePreview();
+  const [focused, setFocused] = useState(preview && autoFocus && !disabled);
 
   useEffect(() => {
-    if (!disabled && autoFocus) {
+    if (!disabled && autoFocus && !preview) {
       const t = setTimeout(() => ref.current?.focus(), 250);
       return () => clearTimeout(t);
     }
-  }, [disabled, autoFocus]);
+  }, [disabled, autoFocus, preview]);
 
   return (
     <Pressable onPress={() => ref.current?.focus()} accessible={false}>

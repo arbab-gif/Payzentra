@@ -7,7 +7,7 @@
  * screens only depend on the return shapes.
  */
 import { getRandomBytes } from "expo-crypto";
-import { useApp, type Address, type IdType, type VerifiedIdentity } from "./store";
+import { useApp, type Address, type IdType, type Scenarios, type VerifiedIdentity } from "./store";
 import { toast } from "./toast";
 
 export const DEMO_EMAIL_CODE = "123456";
@@ -314,11 +314,11 @@ export async function resetPassword(email: string, password: string): Promise<Re
 
 // ---------- Identity verification ----------
 
-/** The customer enters only the BVN or NIN; the provider returns the rest for them to review. */
-export async function lookupIdentity(idType: IdType, idNumber: string): Promise<Result<VerifiedIdentity>> {
-  await wait(2400);
-  const { scenarios } = state();
-  switch (scenarios.identity) {
+type IdentityFailure = Exclude<Scenarios["identity"], "match">;
+
+/** What the identity provider says when a BVN / NIN check fails. */
+export function identityFailure(kind: IdentityFailure, idType: IdType) {
+  switch (kind) {
     case "provider_down":
       return fail("PROVIDER_UNAVAILABLE", `We can't reach the ${idType} check right now. Your progress is saved, so try again in a few minutes.`);
     case "not_found":
@@ -330,10 +330,20 @@ export async function lookupIdentity(idType: IdType, idNumber: string): Promise<
     case "unsupported":
       return fail("UNSUPPORTED_DOCUMENT", `This ${idType} can't be used to verify an account. Use a BVN or NIN that was issued to you.`);
   }
-  // One consistent demo customer across every screen.
-  const identity: VerifiedIdentity = { firstName: "Adaeze", middleName: "Chioma", lastName: "Okonkwo", dob: "12/06/1994", gender: "Female", phoneMasked: "+234 803 *** **67" };
-  state().setKyc({ idType, idNumber, consentAt: new Date().toISOString(), identity });
-  return { ok: true, data: identity };
+}
+
+/** One consistent demo customer across every screen. */
+export const DEMO_IDENTITY: VerifiedIdentity = { firstName: "Adaeze", middleName: "Chioma", lastName: "Okonkwo", dob: "12/06/1994", gender: "Female", phoneMasked: "+234 803 *** **67" };
+
+export const ADDRESS_REJECTION = "The address you entered couldn't be confirmed. Please check it matches where you currently live.";
+
+/** The customer enters only the BVN or NIN; the provider returns the rest for them to review. */
+export async function lookupIdentity(idType: IdType, idNumber: string): Promise<Result<VerifiedIdentity>> {
+  await wait(2400);
+  const { scenarios } = state();
+  if (scenarios.identity !== "match") return identityFailure(scenarios.identity, idType);
+  state().setKyc({ idType, idNumber, consentAt: new Date().toISOString(), identity: DEMO_IDENTITY });
+  return { ok: true, data: DEMO_IDENTITY };
 }
 
 export async function confirmIdentity(): Promise<Result> {
@@ -371,7 +381,7 @@ export async function submitVerification(): Promise<Result> {
   const { decision } = state().scenarios;
   if (decision === "verified") state().setKyc({ status: "verified" });
   else if (decision === "pending") state().setKyc({ status: "pending" });
-  else state().setKyc({ status: "rejected", rejectionReason: "The address you entered couldn't be confirmed. Please check it matches where you currently live." });
+  else state().setKyc({ status: "rejected", rejectionReason: ADDRESS_REJECTION });
   return { ok: true };
 }
 

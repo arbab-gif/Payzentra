@@ -9,6 +9,7 @@ import { useDemoSheet } from "@/components/DemoSheet";
 import { CoinLogo, type CoinCode } from "@/components/Logos";
 import { Button, Logo, Text } from "@/components/ui";
 import { useWebLayout } from "@/lib/layout";
+import { usePreview, useSeed } from "@/lib/preview";
 import { nextRoute, useApp } from "@/lib/store";
 import { fonts, radius } from "@/lib/theme";
 
@@ -32,18 +33,22 @@ export default function Welcome() {
   const insets = useSafeAreaInsets();
   const app = useApp();
   const web = useWebLayout();
-  const [page, setPage] = useState(0);
+  // Gallery frames hold one slide still instead of auto-playing.
+  const preview = !!usePreview();
+  const seed = useSeed<{ page: number }>();
+  const [page, setPage] = useState(seed.page ?? 0);
   const [progress] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
+    if (preview) return progress.setValue(0.6);
     progress.setValue(0);
     const anim = Animated.timing(progress, { toValue: 1, duration: SLIDE_MS, useNativeDriver: false });
     anim.start(({ finished }) => finished && setPage((p) => (p + 1) % SLIDES.length));
     return () => anim.stop();
-  }, [page, progress]);
+  }, [page, progress, preview]);
 
   if (app.account && app.session.authenticated) return <Redirect href={nextRoute(app) as never} />;
-  if (app.account) return <Redirect href="/welcome-back" />;
+  if (app.account) return <Redirect href="/login" />;
 
   const slide = SLIDES[page];
 

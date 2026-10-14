@@ -4,15 +4,17 @@ import { View } from "react-native";
 import { PageTitle, Screen } from "@/components/Screen";
 import { Alert, Button, Field, LinkText, Text } from "@/components/ui";
 import { startSignup } from "@/lib/api";
+import { useSeed } from "@/lib/preview";
 import { ROUTES } from "@/lib/store";
 import { isEmail } from "@/lib/validation";
 
 /** Sign-up step 1: email only. A code is sent to confirm it before a password is set. */
 export default function SignUpEmail() {
-  const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const seed = useSeed<{ email: string; submitted: boolean; duplicate: string }>();
+  const [email, setEmail] = useState(seed.email ?? "");
+  const [submitted, setSubmitted] = useState(seed.submitted ?? false);
   const [loading, setLoading] = useState(false);
-  const [duplicate, setDuplicate] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<string | null>(seed.duplicate ?? null);
 
   const error = !submitted ? null : !email.trim() ? "Enter your email address." : !isEmail(email) ? "Enter a valid email address, like name@example.com." : null;
 

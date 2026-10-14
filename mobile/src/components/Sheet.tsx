@@ -1,8 +1,10 @@
 import { Check, ChevronDown, Search, X } from "lucide-react-native";
 import { useMemo, useState, type ReactNode } from "react";
-import { FlatList, Modal, Pressable, TextInput, View } from "react-native";
+import { FlatList, Pressable, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSeed } from "@/lib/preview";
 import { fonts, radius, useColors, noWebOutline } from "@/lib/theme";
+import { Overlay } from "./Overlay";
 import { Text } from "./ui";
 
 /** Bottom sheet built on Modal: slides up, dims the screen, closes on backdrop tap or Android back. */
@@ -22,7 +24,7 @@ export function Sheet({
   const c = useColors();
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+    <Overlay visible={open} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={{ flex: 1, backgroundColor: c.overlay }} onPress={onClose} accessibilityLabel="Close" />
       <View
         style={{
@@ -55,7 +57,7 @@ export function Sheet({
         </View>
         {children}
       </View>
-    </Modal>
+    </Overlay>
   );
 }
 
@@ -79,7 +81,8 @@ export function SelectField({
   showLabel?: boolean;
 }) {
   const c = useColors();
-  const [open, setOpen] = useState(false);
+  const seed = useSeed<{ selectOpen: boolean }>();
+  const [open, setOpen] = useState(seed.selectOpen ?? false);
   const [q, setQ] = useState("");
   const filtered = useMemo(() => options.filter((o) => o.toLowerCase().includes(q.trim().toLowerCase())), [options, q]);
 

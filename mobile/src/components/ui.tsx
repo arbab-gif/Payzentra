@@ -25,6 +25,8 @@ import {
   type ViewStyle,
 } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
+import { usePreview } from "@/lib/preview";
+import { useApp } from "@/lib/store";
 import { fonts, radius, useColors, type Colors, noWebOutline } from "@/lib/theme";
 
 export function haptic(kind: "success" | "error" | "light") {
@@ -183,7 +185,9 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
   ref,
 ) {
   const c = useColors();
-  const [focused, setFocused] = useState(false);
+  // Gallery frames show the focused look of an auto-focused field without actually taking focus.
+  const preview = !!usePreview();
+  const [focused, setFocused] = useState(preview && !!rest.autoFocus);
   const hasValue = typeof rest.value === "string" ? rest.value.length > 0 : !!rest.defaultValue;
   const bad = !!error || !!invalid;
   return (
@@ -223,6 +227,7 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
             onBlur?.(e);
           }}
           {...rest}
+          autoFocus={preview ? false : rest.autoFocus}
           style={[
             {
               // flex + minWidth 0 so browser inputs share the row instead of keeping a wide default size.
@@ -416,10 +421,13 @@ export function StatusIcon({
 }) {
   const c = useColors();
   const shade = c[tone];
+  // On light backgrounds the pale front blob can't carry the white symbol, so it's drawn stronger.
+  const light = useApp((s) => s.theme) === "light";
+  const preview = !!usePreview();
   const [beat] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
-    if (!pulse) return;
+    if (!pulse || preview) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(beat, { toValue: 1, duration: 800, useNativeDriver: Platform.OS !== "web" }),
@@ -428,7 +436,7 @@ export function StatusIcon({
     );
     loop.start();
     return () => loop.stop();
-  }, [pulse, beat]);
+  }, [pulse, beat, preview]);
 
   const tick = Icon === Check || Icon === CheckCircle2;
   return (
@@ -442,11 +450,14 @@ export function StatusIcon({
         }}
       >
         <Svg width={size} height={size} viewBox="20 18 82 82">
-          <Path d={BLOB_BACK} fill={shade} opacity={0.22} />
-          <Path d={BLOB_FRONT} fill={shade} opacity={0.45} />
+          <Path d={BLOB_BACK} fill={shade} opacity={light ? 0.18 : 0.22} />
+          <Path d={BLOB_FRONT} fill={shade} opacity={light ? 0.9 : 0.45} />
         </Svg>
       </Animated.View>
-      <Icon size={Math.round(size * 0.46)} color="#ffffff" strokeWidth={tick ? 3 : 2.2} />
+      {/* Wrapped so the browser stacks the symbol above the absolutely positioned blobs. */}
+      <View>
+        <Icon size={Math.round(size * 0.46)} color="#ffffff" strokeWidth={tick ? 3 : 2.2} />
+      </View>
     </View>
   );
 }
@@ -498,10 +509,13 @@ export function StatusHero({
 // ---------- Motion ----------
 
 export function FadeIn({ children, style, delay = 0 }: { children: ReactNode; style?: StyleProp<ViewStyle>; delay?: number }) {
-  const [v] = useState(() => new Animated.Value(0));
+  // Gallery frames render settled, so hundreds of frames don't animate at once.
+  const preview = !!usePreview();
+  const [v] = useState(() => new Animated.Value(preview ? 1 : 0));
   useEffect(() => {
+    if (preview) return;
     Animated.timing(v, { toValue: 1, duration: 280, delay, useNativeDriver: Platform.OS !== "web" }).start();
-  }, [v, delay]);
+  }, [v, delay, preview]);
   return (
     <Animated.View style={[style, { opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}>
       {children}

@@ -11,6 +11,7 @@ import { cameraFace, SelfieArt } from "@/components/Brand";
 import { Alert, Button, Card, StatusHero, Text } from "@/components/ui";
 import { MAX_LIVENESS_ATTEMPTS, submitLiveness } from "@/lib/api";
 import { useWebLayout } from "@/lib/layout";
+import { usePreview, useSeed } from "@/lib/preview";
 import { ROUTES, useApp } from "@/lib/store";
 import { useColors } from "@/lib/theme";
 import { useGuard } from "@/lib/useGuard";
@@ -35,15 +36,18 @@ export default function Selfie() {
   const attemptsUsed = useApp((s) => s.kyc.livenessAttempts);
   const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
-  const [stage, setStage] = useState<Stage>("intro");
-  const [prompt, setPrompt] = useState(0);
-  const [attemptsLeft, setAttemptsLeft] = useState(MAX_LIVENESS_ATTEMPTS - attemptsUsed);
+  // Gallery frames hold one liveness prompt still.
+  const preview = !!usePreview();
+  const seed = useSeed<{ stage: Stage; prompt: number; attemptsLeft: number }>();
+  const [stage, setStage] = useState<Stage>(seed.stage ?? "intro");
+  const [prompt, setPrompt] = useState(seed.prompt ?? 0);
+  const [attemptsLeft, setAttemptsLeft] = useState(seed.attemptsLeft ?? MAX_LIVENESS_ATTEMPTS - attemptsUsed);
   const allowed = useGuard(ROUTES.selfie, stage === "processing" || stage === "passed" || stage === "manual");
   const web = useWebLayout();
 
   // Walk through the liveness prompts, then submit.
   useEffect(() => {
-    if (stage !== "capture") return;
+    if (stage !== "capture" || preview) return;
     const t = setTimeout(
       () => {
         if (prompt < PROMPTS.length - 1) {
@@ -64,7 +68,7 @@ export default function Selfie() {
       prompt === 0 ? 1800 : 1400,
     );
     return () => clearTimeout(t);
-  }, [stage, prompt]);
+  }, [stage, prompt, preview]);
 
   if (!allowed) return <Loading />;
 

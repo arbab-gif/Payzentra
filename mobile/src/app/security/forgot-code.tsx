@@ -5,16 +5,18 @@ import { View } from "react-native";
 import { Loading, PageTitle, Screen } from "@/components/Screen";
 import { Alert, Button, IconBadge, LinkText, PasswordField } from "@/components/ui";
 import { verifyPasswordForReset } from "@/lib/api";
+import { useSeed } from "@/lib/preview";
 import { ROUTES, useApp } from "@/lib/store";
 import { useGuard } from "@/lib/useGuard";
 
 /** Forgotten unlock code: confirm the account password, then choose a new code. */
 export default function ForgotCode() {
   const email = useApp((s) => s.account?.email ?? "");
-  const [password, setPassword] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const seed = useSeed<{ password: string; submitted: boolean; error: string }>();
+  const [password, setPassword] = useState(seed.password ?? "");
+  const [submitted, setSubmitted] = useState(seed.submitted ?? false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(seed.error ?? null);
   const allowed = useGuard(ROUTES.forgotCode, loading);
 
   if (!allowed) return <Loading />;

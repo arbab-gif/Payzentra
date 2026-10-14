@@ -6,12 +6,14 @@ import { SelectField } from "@/components/Sheet";
 import { ShieldCheck } from "lucide-react-native";
 import { Button, Checkbox, Field, StatusHero, Text } from "@/components/ui";
 import { saveAddress, submitVerification } from "@/lib/api";
+import { useSeed } from "@/lib/preview";
 import { ROUTES, useApp } from "@/lib/store";
 import { useGuard } from "@/lib/useGuard";
 import { NG_STATES } from "@/lib/validation";
 
 export default function AddressScreen() {
   const saved = useApp((s) => s.kyc.address);
+  const seed = useSeed<{ submitted: boolean; submitting: boolean }>();
   const [form, setForm] = useState({
     line1: saved?.line1 ?? "",
     line2: saved?.line2 ?? "",
@@ -21,9 +23,9 @@ export default function AddressScreen() {
     postcode: saved?.postcode ?? "",
   });
   const [current, setCurrent] = useState(!!saved);
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState(seed.submitted ?? false);
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(seed.submitting ?? false);
   const line2Ref = useRef<TextInput>(null);
   const cityRef = useRef<TextInput>(null);
   const lgaRef = useRef<TextInput>(null);

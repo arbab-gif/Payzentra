@@ -36,6 +36,7 @@ import { BIOMETRIC_NAME } from "@/components/DevicePrompt";
 import { CoinLogo, CoinStack, MerchantLogo } from "@/components/Logos";
 import { Button, haptic, LinkText, NgFlag, StatusIcon, Text } from "@/components/ui";
 import { activeHome, money, newHome, type HomeData, type Txn } from "@/lib/demoData";
+import { usePreview, useSeed } from "@/lib/preview";
 import { kycNext, ROUTES, useApp, type Account, type Kyc } from "@/lib/store";
 import { fonts, radius, useColors } from "@/lib/theme";
 import { toast } from "@/lib/toast";
@@ -114,16 +115,20 @@ export function useHomeModel(): HomeModel | null {
   const passkey = useApp((s) => s.scenarios.passkey);
   const hide = useApp((s) => s.hideBalances);
   const setHide = useApp((s) => s.setHideBalances);
-  const [loading, setLoading] = useState(true);
+  // Gallery frames show either the loaded page or the skeleton, never a timed switch.
+  const preview = !!usePreview();
+  const seed = useSeed<{ loading: boolean }>();
+  const [loading, setLoading] = useState(seed.loading ?? !preview);
   const [refreshing, setRefreshing] = useState(false);
   const [updateDismissed, setUpdateDismissed] = useState(false);
   const { firstName, lastName, initials } = useCustomerName();
 
   // First load shows a skeleton rather than empty or zero values.
   useEffect(() => {
+    if (preview) return;
     const t = setTimeout(() => setLoading(false), 700);
     return () => clearTimeout(t);
-  }, []);
+  }, [preview]);
 
   if (!allowed || !account) return null;
 
@@ -708,7 +713,7 @@ export function NotificationBadge({ count }: { count: number }) {
 
 export function signOut() {
   useApp.getState().signOut();
-  router.replace("/welcome-back");
+  router.replace("/login");
 }
 
 export function startAgain() {

@@ -2,6 +2,7 @@ import { KeyRound, MonitorSmartphone } from "lucide-react-native";
 import { useState } from "react";
 import { View } from "react-native";
 import { passkeySignIn, passkeySupported, resendEmailCode, verifyDeviceCode, type PromptOutcome } from "@/lib/api";
+import { useSeed } from "@/lib/preview";
 import { useApp } from "@/lib/store";
 import { DevicePrompt } from "./DevicePrompt";
 import { OtpInput } from "./OtpInput";
@@ -15,9 +16,10 @@ type Failure = { code: string; message: string; attemptsLeft?: number };
  * the customer confirms a code sent to their email before the session starts.
  */
 export function NewDeviceCheck({ email, onDone, onCancel }: { email: string; onDone: () => void; onCancel: () => void }) {
-  const [code, setCode] = useState("");
+  const seed = useSeed<{ deviceCode: string; deviceError: Failure }>();
+  const [code, setCode] = useState(seed.deviceCode ?? "");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Failure | null>(null);
+  const [error, setError] = useState<Failure | null>(seed.deviceError ?? null);
   const [sent, setSent] = useState(false);
 
   const submit = async (value = code) => {

@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { Info } from "lucide-react-native";
 import { useState } from "react";
 import { View } from "react-native";
@@ -6,6 +6,7 @@ import { CodePad } from "@/components/CodePad";
 import { Loading, Screen } from "@/components/Screen";
 import { Text } from "@/components/ui";
 import { biometricsAvailable, checkUnlockCode, setUnlockCode, UNLOCK_CODE_LENGTH } from "@/lib/api";
+import { useRouteParams, useSeed } from "@/lib/preview";
 import { ROUTES, useApp } from "@/lib/store";
 import { radius, useColors } from "@/lib/theme";
 import { toast } from "@/lib/toast";
@@ -27,12 +28,13 @@ function weak(code: string) {
  */
 export default function UnlockCodeScreen() {
   const c = useColors();
-  const { mode = "setup" } = useLocalSearchParams<{ mode?: "setup" | "reset" | "change" }>();
+  const { mode = "setup" } = useRouteParams<{ mode: "setup" | "reset" | "change" }>();
   const hasBiometrics = useApp((s) => s.account?.biometrics);
-  const [stage, setStage] = useState<Stage>(mode === "change" ? "current" : "new");
+  const seed = useSeed<{ stage: Stage; value: string; error: string }>();
+  const [stage, setStage] = useState<Stage>(seed.stage ?? (mode === "change" ? "current" : "new"));
   const [first, setFirst] = useState("");
-  const [value, setValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [value, setValue] = useState(seed.value ?? "");
+  const [error, setError] = useState<string | null>(seed.error ?? null);
   const [busy, setBusy] = useState(false);
   const allowed = useGuard(ROUTES.setUnlockCode, busy);
 

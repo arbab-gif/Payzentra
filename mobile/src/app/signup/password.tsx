@@ -5,6 +5,7 @@ import { PasswordRules } from "@/components/PasswordRules";
 import { Loading, PageTitle, Screen } from "@/components/Screen";
 import { Button, Card, Checkbox, PasswordField, Text } from "@/components/ui";
 import { setPassword as savePassword } from "@/lib/api";
+import { useSeed } from "@/lib/preview";
 import { ROUTES, useApp } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { useGuard } from "@/lib/useGuard";
@@ -13,10 +14,11 @@ import { passwordOk } from "@/lib/validation";
 /** Sign-up step 3: set and confirm a password (the email is already verified). */
 export default function SignUpPassword() {
   const email = useApp((s) => s.account?.email ?? "");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [terms, setTerms] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const seed = useSeed<{ password: string; confirm: string; terms: boolean; submitted: boolean }>();
+  const [password, setPassword] = useState(seed.password ?? "");
+  const [confirm, setConfirm] = useState(seed.confirm ?? "");
+  const [terms, setTerms] = useState(seed.terms ?? false);
+  const [submitted, setSubmitted] = useState(seed.submitted ?? false);
   const [loading, setLoading] = useState(false);
   const allowed = useGuard(ROUTES.password, loading);
 

@@ -1,17 +1,14 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { ScanFace } from "lucide-react-native";
 import { useState } from "react";
 import { View } from "react-native";
 import { Screen } from "@/components/Screen";
-import { NewDeviceCheck, PasskeyOption } from "@/components/SignIn";
-import { Alert, Button, LinkText, PasswordField, Text } from "@/components/ui";
-import { login } from "@/lib/api";
+import { BIOMETRIC_NAME, DevicePrompt } from "@/components/DevicePrompt";
+import { NewDeviceCheck } from "@/components/SignIn";
+import { Alert, Button, Field, LinkText, PasswordField, Text } from "@/components/ui";
+import { biometricOutcome, biometricsAvailable, login, passkeySignIn } from "@/lib/api";
 import { nextRoute, useApp } from "@/lib/store";
-
-function maskEmail(email: string) {
-  const [user, domain] = email.split("@");
-  return `${user.slice(0, 2)}${"•".repeat(Math.max(1, user.length - 2))}@${domain}`;
-}
 
 /**
  * Signed out on a device that remembers the account (after logging out, a
@@ -21,11 +18,14 @@ export default function WelcomeBack() {
   const { reason } = useLocalSearchParams<{ reason?: "expired" | "locked" }>();
   const account = useApp((s) => s.account);
   const firstName = useApp((s) => s.kyc.identity?.firstName);
+  const [email, setEmail] = useState(account?.email ?? "");
   const [password, setPassword] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [deviceCheck, setDeviceCheck] = useState(false);
+  const [bioPrompt, setBioPrompt] = useState(false);
+  const [bioLoading, setBioLoading] = useState(false);
 
   if (!account) return <Redirect href="/" />;
   const initials = (firstName ?? account.email).slice(0, 1).toUpperCase();
@@ -36,9 +36,9 @@ export default function WelcomeBack() {
   const submit = async () => {
     setSubmitted(true);
     setError(null);
-    if (!password) return;
+    if (!email || !password) return;
     setLoading(true);
-    const res = await login(account.email, password);
+    const res = await login(email, password);
     setLoading(false);
     if (!res.ok) return setError(res);
     if (res.data.deviceCheck) return setDeviceCheck(true);
@@ -50,8 +50,13 @@ export default function WelcomeBack() {
       footer={
         <>
           <Button title="Log in" loading={loading} onPress={submit} />
-          <PasskeyOption onSignedIn={finish} onError={setError} />
-          <Button title="Not you? Use another account" variant="ghost" onPress={() => router.push("/login?other=1")} />
+          {biometricsAvailable() && (
+            <Button title={`Sign in with ${BIOMETRIC_NAME}`} variant="secondary" icon={ScanFace} loading={bioLoading} onPress={() => setBioPrompt(true)} />
+          )}
+          <View style={{ flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 4 }}>
+            <Text variant="small" tone="muted">New to Payzentra?</Text>
+            <LinkText onPress={() => router.replace("/signup")}>Create an account</LinkText>
+          </View>
         </>
       }
     >
@@ -63,7 +68,6 @@ export default function WelcomeBack() {
         <Text variant="title" center accessibilityRole="header">
           Welcome back{firstName ? `, ${firstName}` : ""}
         </Text>
-        <Text tone="muted" center style={{ marginTop: 6 }}>{maskEmail(account.email)}</Text>
       </View>
       <View style={{ gap: 16 }}>
         {reason === "expired" && !error && (
@@ -73,10 +77,21 @@ export default function WelcomeBack() {
           <Alert tone="warning" title="Unlock code locked">Too many wrong attempts. Log in with your password, then set a new unlock code.</Alert>
         )}
         {error && (
-          <Alert tone={error.code === "LOCKED" ? "warning" : "danger"} title={error.code === "LOCKED" ? "Sign-in paused" : error.code.startsWith("PASSKEY") || error.code === "UNSUPPORTED" ? "Passkey sign-in didn't work" : "Couldn't log you in"}>
+          <Alert tone={error.code === "LOCKED" ? "warning" : "danger"} title={error.code === "LOCKED" ? "Sign-in paused" : "Couldn't log you in"}>
             {error.message}
           </Alert>
         )}
+        <Field
+          label="Email"
+          placeholder="you@example.com"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          textContentType="emailAddress"
+          autoComplete="email"
+          autoCapitalize="none"
+          error={submitted && !email ? "Enter your email." : null}
+        />
         <PasswordField
           label="Password"
           placeholder="Your password"
@@ -97,6 +112,22 @@ export default function WelcomeBack() {
           You&apos;ll confirm with your authenticator app next.
         </Text>
       )}
+      <DevicePrompt
+        open={bioPrompt}
+        kind="biometric"
+        title={BIOMETRIC_NAME}
+        subtitle={`Sign in to Payzentra with ${BIOMETRIC_NAME}`}
+        outcome={biometricOutcome}
+        onResult={async (r) => {
+          setBioPrompt(false);
+          if (r !== "success") return;
+          setBioLoading(true);
+          const res = await passkeySignIn();
+          setBioLoading(false);
+          if (res.ok) finish();
+          else setError(res);
+        }}
+      />
     </Screen>
   );
 }

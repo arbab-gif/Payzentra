@@ -6,7 +6,7 @@ import {
   InterTight_800ExtraBold,
   useFonts,
 } from "@expo-google-fonts/inter-tight";
-import { Stack } from "expo-router";
+import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -37,6 +37,7 @@ export default function RootLayout() {
   const theme = useApp((s) => s.theme);
   const viewMode = useApp((s) => s.viewMode);
   const c = useColors();
+  const gallery = usePathname() === "/gallery";
   // Show the launch splash for at least a moment, even when everything loads instantly.
   const [splashDone, setSplashDone] = useState(false);
   useEffect(() => {
@@ -45,6 +46,16 @@ export default function RootLayout() {
   }, []);
 
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: "#000000" }} />;
+
+  // The screen gallery is a design-review page, not part of the app: full window, no app chrome.
+  if (gallery) {
+    return (
+      <SafeAreaProvider>
+        <Stack screenOptions={{ headerShown: false, animation: "none" }} />
+      </SafeAreaProvider>
+    );
+  }
+
   if (!hydrated || !splashDone) return <SplashScreen />;
 
   // In a browser: "Mobile app" previews the app at phone width; "Web app" uses the full window.

@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { Loading, PageTitle, Screen } from "@/components/Screen";
 import { Alert, Button, Checkbox, Field, StatusHero, Text } from "@/components/ui";
 import { lookupIdentity } from "@/lib/api";
+import { usePreview, useSeed } from "@/lib/preview";
 import { ROUTES, useApp, type IdType } from "@/lib/store";
 import { radius, useColors } from "@/lib/theme";
 import { toast } from "@/lib/toast";
@@ -20,12 +21,13 @@ type Failure = { code: string; message: string };
 export default function Identity() {
   const c = useColors();
   const kyc = useApp((s) => s.kyc);
-  const [idType, setIdType] = useState<IdType>(kyc.idType ?? "BVN");
-  const [number, setNumber] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [failure, setFailure] = useState<Failure | null>(null);
+  const seed = useSeed<{ idType: IdType; number: string; consent: boolean; submitted: boolean; checking: boolean; failure: Failure }>();
+  const [idType, setIdType] = useState<IdType>(seed.idType ?? kyc.idType ?? "BVN");
+  const [number, setNumber] = useState(seed.number ?? "");
+  const [consent, setConsent] = useState(seed.consent ?? false);
+  const [submitted, setSubmitted] = useState(seed.submitted ?? false);
+  const [checking, setChecking] = useState(seed.checking ?? false);
+  const [failure, setFailure] = useState<Failure | null>(seed.failure ?? null);
   const allowed = useGuard(ROUTES.identity, checking);
 
   if (!allowed) return <Loading />;
@@ -200,11 +202,14 @@ function Checking({ idType }: { idType: IdType }) {
     idType === "NIN"
       ? ["Connecting to the NIN service", "Finding your NIN record", "Fetching your name and date of birth"]
       : ["Connecting to the BVN service", "Finding your bank verification record", "Fetching your name and date of birth"];
-  const [i, setI] = useState(0);
+  // Gallery frames hold the middle step still.
+  const preview = !!usePreview();
+  const [i, setI] = useState(preview ? 1 : 0);
   useEffect(() => {
+    if (preview) return;
     const t = setInterval(() => setI((x) => Math.min(x + 1, 2)), 750);
     return () => clearInterval(t);
-  }, []);
+  }, [preview]);
   return (
     <View accessibilityLiveRegion="polite">
       <StatusHero tone="primary" icon={ShieldCheck} title={`Checking your ${idType}`} body={idType === "NIN" ? "We're fetching your record from the national identity database. This usually takes a few seconds." : "We're fetching your record from your bank verification details. This usually takes a few seconds."} pulse />

@@ -5,6 +5,7 @@ import { View } from "react-native";
 import { Loading, PageTitle, Screen } from "@/components/Screen";
 import { Alert, Button, Card, Divider, StatusHero, Text } from "@/components/ui";
 import { confirmIdentity } from "@/lib/api";
+import { useSeed } from "@/lib/preview";
 import { ROUTES, useApp } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { useGuard } from "@/lib/useGuard";
@@ -12,8 +13,9 @@ import { useGuard } from "@/lib/useGuard";
 export default function ConfirmIdentity() {
   const kyc = useApp((s) => s.kyc);
   const setKyc = useApp((s) => s.setKyc);
+  const seed = useSeed<{ notMe: boolean }>();
   const [loading, setLoading] = useState(false);
-  const [notMe, setNotMe] = useState(false);
+  const [notMe, setNotMe] = useState(seed.notMe ?? false);
   const allowed = useGuard(ROUTES.identityConfirm, loading || notMe);
 
   if (!allowed || !kyc.identity) return <Loading />;

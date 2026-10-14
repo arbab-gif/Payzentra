@@ -12,6 +12,7 @@ import { useCustomerName } from "@/components/home/parts";
 import { Loading } from "@/components/Screen";
 import { LinkText, Text } from "@/components/ui";
 import { biometricOutcome, checkUnlockCode, restoreSession, UNLOCK_CODE_LENGTH } from "@/lib/api";
+import { usePreview, useSeed } from "@/lib/preview";
 import { ROUTES, useApp } from "@/lib/store";
 import { useColors } from "@/lib/theme";
 import { useGuard } from "@/lib/useGuard";
@@ -27,12 +28,15 @@ export default function Unlock() {
   const insets = useSafeAreaInsets();
   const account = useApp((s) => s.account);
   const { firstName, initials } = useCustomerName();
-  const [value, setValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const preview = !!usePreview();
+  const seed = useSeed<{ value: string; error: string; restoring: "quick" | "refresh"; prompt: boolean }>();
+  const [value, setValue] = useState(seed.value ?? "");
+  const [error, setError] = useState<string | null>(seed.error ?? null);
   const [busy, setBusy] = useState(false);
-  const [restoring, setRestoring] = useState<null | "quick" | "refresh">(null);
-  const [prompt, setPrompt] = useState(false);
-  const autoPrompted = useRef(false);
+  const [restoring, setRestoring] = useState<null | "quick" | "refresh">(seed.restoring ?? null);
+  const [prompt, setPrompt] = useState(seed.prompt ?? false);
+  // In the gallery the Face ID prompt only shows when a frame asks for it.
+  const autoPrompted = useRef(preview);
   const allowed = useGuard(ROUTES.unlock, busy || !!restoring);
 
   // Offer biometrics straight away when they're turned on.

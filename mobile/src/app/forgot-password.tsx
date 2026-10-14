@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { CheckCircle2, KeyRound, Mail } from "lucide-react-native";
 import { useState } from "react";
 import { View } from "react-native";
@@ -7,6 +7,7 @@ import { PasswordRules } from "@/components/PasswordRules";
 import { PageTitle, Screen } from "@/components/Screen";
 import { Alert, Button, Field, IconBadge, LinkText, PasswordField, StatusHero, Text } from "@/components/ui";
 import { requestPasswordReset, resetPassword, verifyResetCode } from "@/lib/api";
+import { useRouteParams, useSeed } from "@/lib/preview";
 import { useColors } from "@/lib/theme";
 import { isEmail, passwordOk } from "@/lib/validation";
 
@@ -14,15 +15,16 @@ type Stage = "email" | "code" | "password" | "done";
 
 export default function ForgotPassword() {
   const c = useColors();
-  const params = useLocalSearchParams<{ email?: string }>();
-  const [stage, setStage] = useState<Stage>("email");
+  const params = useRouteParams<{ email: string }>();
+  const seed = useSeed<{ stage: Stage; code: string; password: string; confirm: string; submitted: boolean; error: string }>();
+  const [stage, setStage] = useState<Stage>(seed.stage ?? "email");
   const [email, setEmail] = useState(params.email ?? "");
-  const [code, setCode] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [code, setCode] = useState(seed.code ?? "");
+  const [password, setPassword] = useState(seed.password ?? "");
+  const [confirm, setConfirm] = useState(seed.confirm ?? "");
+  const [submitted, setSubmitted] = useState(seed.submitted ?? false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(seed.error ?? null);
 
   const sendCode = async () => {
     setSubmitted(true);
@@ -59,7 +61,7 @@ export default function ForgotPassword() {
 
   if (stage === "done") {
     return (
-      <Screen center footer={<Button title="Log in" onPress={() => router.replace("/welcome-back")} />}>
+      <Screen center footer={<Button title="Log in" onPress={() => router.replace("/login")} />}>
         <StatusHero tone="success" icon={CheckCircle2} title="Password updated" body="For your security we've signed you out of all devices. Log in with your new password." />
       </Screen>
     );

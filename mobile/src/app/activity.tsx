@@ -6,6 +6,7 @@ import { SectionError, TxnRow } from "@/components/home/parts";
 import { Loading } from "@/components/Screen";
 import { StatusIcon, Text } from "@/components/ui";
 import { activeHome, newHome, type Txn } from "@/lib/demoData";
+import { usePreview, useSeed } from "@/lib/preview";
 import { ROUTES, useApp } from "@/lib/store";
 import { fonts, radius, useColors } from "@/lib/theme";
 import { useGuard } from "@/lib/useGuard";
@@ -27,14 +28,16 @@ export default function Activity() {
   const kyc = useApp((s) => s.kyc);
   const scenario = useApp((s) => s.scenarios.home);
   const hide = useApp((s) => s.hideBalances);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [loading, setLoading] = useState(true);
+  const preview = !!usePreview();
+  const seed = useSeed<{ filter: Filter; loading: boolean }>();
+  const [filter, setFilter] = useState<Filter>(seed.filter ?? "all");
+  const [loading, setLoading] = useState(seed.loading ?? !preview);
 
   useEffect(() => {
-    if (!loading) return;
+    if (!loading || preview) return;
     const t = setTimeout(() => setLoading(false), 600);
     return () => clearTimeout(t);
-  }, [loading]);
+  }, [loading, preview]);
 
   if (!allowed) return <Loading />;
 

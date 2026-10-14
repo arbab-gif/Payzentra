@@ -6,6 +6,7 @@ import { OtpInput } from "@/components/OtpInput";
 import { Loading, PageTitle, Screen } from "@/components/Screen";
 import { Alert, Button, IconBadge, LinkText, StatusHero, Text } from "@/components/ui";
 import { EMAIL_CODE_TTL_MS, resendEmailCode, verifyEmailCode } from "@/lib/api";
+import { usePreview, useSeed } from "@/lib/preview";
 import { ROUTES, useApp } from "@/lib/store";
 import { useGuard } from "@/lib/useGuard";
 
@@ -13,12 +14,13 @@ const RESEND_AFTER = 30;
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 /** Seconds left until `deadline`, ticking once a second. */
-function useSecondsUntil(deadline: number) {
+function useSecondsUntil(deadline: number, frozen: boolean) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
+    if (frozen) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [frozen]);
   return Math.max(0, Math.ceil((deadline - now) / 1000));
 }
 
@@ -27,16 +29,19 @@ type Failure = { code: string; message: string; attemptsLeft?: number };
 export default function VerifyEmail() {
   const email = useApp((s) => s.account?.email);
   const resetAll = useApp((s) => s.resetAll);
-  const [code, setCode] = useState("");
-  const [sentAt, setSentAt] = useState(() => Date.now());
+  // Gallery frames hold the countdown still.
+  const preview = !!usePreview();
+  const seed = useSeed<{ code: string; error: Failure; done: boolean; sentSecondsAgo: number }>();
+  const [code, setCode] = useState(seed.code ?? "");
+  const [sentAt, setSentAt] = useState(() => Date.now() - (seed.sentSecondsAgo ?? 0) * 1000);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
-  const [error, setError] = useState<Failure | null>(null);
-  const [done, setDone] = useState(false);
+  const [error, setError] = useState<Failure | null>(seed.error ?? null);
+  const [done, setDone] = useState(seed.done ?? false);
   const allowed = useGuard(ROUTES.verifyEmail, done || loading);
 
-  const resendIn = useSecondsUntil(sentAt + RESEND_AFTER * 1000);
-  const expiresIn = useSecondsUntil(sentAt + EMAIL_CODE_TTL_MS);
+  const resendIn = useSecondsUntil(sentAt + RESEND_AFTER * 1000, preview);
+  const expiresIn = useSecondsUntil(sentAt + EMAIL_CODE_TTL_MS, preview);
   const expired = expiresIn === 0 || error?.code === "EXPIRED";
   const locked = error?.code === "LOCKED";
 

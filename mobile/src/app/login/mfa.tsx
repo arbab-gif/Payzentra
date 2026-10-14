@@ -6,17 +6,19 @@ import { OtpInput } from "@/components/OtpInput";
 import { Loading, PageTitle, Screen } from "@/components/Screen";
 import { Alert, Button, Field, IconBadge } from "@/components/ui";
 import { verifyLoginTotp, verifyRecoveryCode } from "@/lib/api";
+import { useSeed } from "@/lib/preview";
 import { nextRoute, ROUTES, useApp } from "@/lib/store";
 import { useGuard } from "@/lib/useGuard";
 
 export default function LoginMfa() {
   const signOut = useApp((s) => s.signOut);
   const remaining = useApp((s) => s.account?.recoveryCodes.length ?? 0);
-  const [mode, setMode] = useState<"app" | "recovery">("app");
-  const [code, setCode] = useState("");
-  const [recovery, setRecovery] = useState("");
+  const seed = useSeed<{ mode: "app" | "recovery"; code: string; recovery: string; error: string }>();
+  const [mode, setMode] = useState<"app" | "recovery">(seed.mode ?? "app");
+  const [code, setCode] = useState(seed.code ?? "");
+  const [recovery, setRecovery] = useState(seed.recovery ?? "");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(seed.error ?? null);
   const allowed = useGuard(ROUTES.loginMfa, loading);
 
   if (!allowed) return <Loading />;
@@ -51,7 +53,7 @@ export default function LoginMfa() {
 
   const cancel = () => {
     signOut();
-    router.replace("/welcome-back");
+    router.replace("/login");
   };
 
   if (mode === "recovery") {

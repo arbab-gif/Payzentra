@@ -1,4 +1,5 @@
-import { Monitor, Smartphone, type LucideIcon } from "lucide-react-native";
+import { router } from "expo-router";
+import { LayoutGrid, Monitor, Smartphone, type LucideIcon } from "lucide-react-native";
 import { Platform, Pressable, View } from "react-native";
 import { useApp } from "@/lib/store";
 import { radius } from "@/lib/theme";
@@ -39,6 +40,14 @@ export function PreviewTabs() {
           );
         })}
       </View>
+      <Pressable
+        onPress={() => router.push("/gallery")}
+        accessibilityRole="link"
+        style={({ pressed }) => ({ position: "absolute", right: 12, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, height: 30, borderRadius: radius.pill, opacity: pressed ? 0.6 : 1 })}
+      >
+        <LayoutGrid size={15} color="#a1a1ac" />
+        <Text variant="caption" style={{ color: "#a1a1ac" }}>All screens</Text>
+      </Pressable>
     </View>
   );
 }

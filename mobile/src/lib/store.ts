@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { create } from "zustand";
+import { createContext, useContext } from "react";
+import { create, createStore, useStore, type StoreApi } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 export type IdType = "BVN" | "NIN";
@@ -112,7 +113,7 @@ type Session = { authenticated: boolean; mfaVerified: boolean; unlocked: boolean
 
 const signedOut: Session = { authenticated: false, mfaVerified: false, unlocked: false };
 
-type State = {
+export type State = {
   account: Account | null;
   session: Session;
   kyc: Kyc;
@@ -135,55 +136,65 @@ type State = {
   resetAll: () => void;
 };
 
-export const useApp = create<State>()(
-  persist(
-    (set) => ({
-      account: null,
-      session: signedOut,
+const build = (set: StoreApi<State>["setState"]): State => ({
+  account: null,
+  session: signedOut,
+  kyc: emptyKyc,
+  scenarios: defaultScenarios,
+  theme: "dark",
+  hideBalances: false,
+  viewMode: "mobile",
+  setAccount: (patch) => set((s) => (s.account ? { account: { ...s.account, ...patch } } : s)),
+  startAccount: (email) =>
+    set({
+      account: {
+        email,
+        password: null,
+        emailVerified: false,
+        unlockCode: null,
+        unlockFailures: 0,
+        biometrics: false,
+        passkey: false,
+        totpSecret: null,
+        mfaEnabled: false,
+        recoveryCodes: [],
+        recoveryCodesSaved: false,
+      },
+      // A brand-new sign-up is already "in" on this device.
+      session: { authenticated: true, mfaVerified: true, unlocked: true },
       kyc: emptyKyc,
-      scenarios: defaultScenarios,
-      theme: "dark",
-      hideBalances: false,
-      viewMode: "mobile",
-      setAccount: (patch) => set((s) => (s.account ? { account: { ...s.account, ...patch } } : s)),
-      startAccount: (email) =>
-        set({
-          account: {
-            email,
-            password: null,
-            emailVerified: false,
-            unlockCode: null,
-            unlockFailures: 0,
-            biometrics: false,
-            passkey: false,
-            totpSecret: null,
-            mfaEnabled: false,
-            recoveryCodes: [],
-            recoveryCodesSaved: false,
-          },
-          // A brand-new sign-up is already "in" on this device.
-          session: { authenticated: true, mfaVerified: true, unlocked: true },
-          kyc: emptyKyc,
-        }),
-      setSession: (patch) => set((s) => ({ session: { ...s.session, ...patch } })),
-      setKyc: (patch) => set((s) => ({ kyc: { ...s.kyc, ...patch } })),
-      setScenario: (key, value) => set((s) => ({ scenarios: { ...s.scenarios, [key]: value } })),
-      setTheme: (theme) => set({ theme }),
-      setHideBalances: (hideBalances) => set({ hideBalances }),
-      setViewMode: (viewMode) => set({ viewMode }),
-      signOut: () =>
-        set((s) => ({
-          session: signedOut,
-          account: s.account ? { ...s.account, unlockCode: null, unlockFailures: 0, biometrics: false } : null,
-        })),
-      resetAll: () => set({ account: null, session: signedOut, kyc: emptyKyc }),
     }),
+  setSession: (patch) => set((s) => ({ session: { ...s.session, ...patch } })),
+  setKyc: (patch) => set((s) => ({ kyc: { ...s.kyc, ...patch } })),
+  setScenario: (key, value) => set((s) => ({ scenarios: { ...s.scenarios, [key]: value } })),
+  setTheme: (theme) => set({ theme }),
+  setHideBalances: (hideBalances) => set({ hideBalances }),
+  setViewMode: (viewMode) => set({ viewMode }),
+  signOut: () =>
+    set((s) => ({
+      session: signedOut,
+      account: s.account ? { ...s.account, unlockCode: null, unlockFailures: 0, biometrics: false } : null,
+    })),
+  resetAll: () => set({ account: null, session: signedOut, kyc: emptyKyc }),
+});
+
+const appStore = create<State>()(
+  persist(
+    (set) => build(set),
     {
       name: "payzentra-demo",
       version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       // The app always opens locked: "unlocked" is never written to storage.
-      partialize: (s) => ({ ...s, session: { ...s.session, unlocked: false } }),
+      partialize: (s) => ({
+        account: s.account,
+        session: { ...s.session, unlocked: false },
+        kyc: s.kyc,
+        scenarios: s.scenarios,
+        theme: s.theme,
+        hideBalances: s.hideBalances,
+        viewMode: s.viewMode,
+      }),
       // v3 → v4: unlock code, biometrics and passkey on the account; verification no longer
       // needs the separate personal-details step.
       migrate: (persisted) => {
@@ -205,10 +216,32 @@ export const useApp = create<State>()(
   ),
 );
 
+/** Screen gallery: each frame gets its own in-memory store, so frames never share or save state. */
+const ScopedStore = createContext<StoreApi<State> | null>(null);
+export const ScopedStoreProvider = ScopedStore.Provider;
+
+export function createScopedStore(patch: Partial<State>): StoreApi<State> {
+  return createStore<State>()((set) => ({ ...build(set), ...patch }));
+}
+
+function useAppState(): State;
+function useAppState<T>(selector: (s: State) => T): T;
+function useAppState<T>(selector?: (s: State) => T) {
+  const scoped = useContext(ScopedStore);
+  return useStore(scoped ?? appStore, selector as (s: State) => T);
+}
+
+export const useApp = Object.assign(useAppState, {
+  getState: appStore.getState,
+  setState: appStore.setState,
+  subscribe: appStore.subscribe,
+  persist: appStore.persist,
+});
+
 /** Every route in journey order. */
 export const ROUTES = {
   welcome: "/",
-  welcomeBack: "/welcome-back",
+  welcomeBack: "/login",
   signup: "/signup",
   verifyEmail: "/signup/verify-email",
   password: "/signup/password",
@@ -244,7 +277,7 @@ type Snapshot = Pick<State, "account" | "session" | "kyc">;
 export function nextRoute(s: Snapshot): string {
   const { account, session } = s;
   if (!account) return ROUTES.welcome;
-  if (!session.authenticated) return account.password ? ROUTES.welcomeBack : ROUTES.welcome;
+  if (!session.authenticated) return account.password ? ROUTES.login : ROUTES.welcome;
   if (!account.emailVerified) return ROUTES.verifyEmail;
   if (!account.password) return ROUTES.password;
   // Two-step sign-in only applies once the customer has turned it on.

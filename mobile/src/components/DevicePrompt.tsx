@@ -1,8 +1,10 @@
 import { Check, KeyRound, ScanFace, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Platform, Pressable, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, View } from "react-native";
 import type { PromptOutcome } from "@/lib/api";
+import { usePreview, useSeed } from "@/lib/preview";
 import { radius, useColors } from "@/lib/theme";
+import { Overlay } from "./Overlay";
 import { Button, haptic, Text } from "./ui";
 
 type Kind = "biometric" | "passkey";
@@ -33,11 +35,13 @@ export function DevicePrompt({
   onResult: (r: "success" | "cancel" | "fallback") => void;
 }) {
   const c = useColors();
-  const [phase, setPhase] = useState<"scanning" | "success" | "failed">("scanning");
+  const preview = !!usePreview();
+  const seed = useSeed<{ promptPhase: "scanning" | "success" | "failed" }>();
+  const [phase, setPhase] = useState<"scanning" | "success" | "failed">(seed.promptPhase ?? "scanning");
   const [run, setRun] = useState(0);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || preview) return;
     let alive = true;
     const t = setTimeout(() => {
       if (!alive) return;
@@ -64,7 +68,7 @@ export function DevicePrompt({
   const Icon = kind === "biometric" ? ScanFace : KeyRound;
 
   return (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={() => onResult("cancel")} onShow={() => setPhase("scanning")}>
+    <Overlay visible={open} transparent animationType="fade" onRequestClose={() => onResult("cancel")} onShow={() => setPhase("scanning")}>
       <View style={{ flex: 1, backgroundColor: c.overlay, alignItems: "center", justifyContent: "center", padding: 24 }}>
         <View style={{ width: "100%", maxWidth: 320, borderRadius: radius.xl, backgroundColor: c.bgElevated, padding: 24, alignItems: "center", gap: 10 }} accessibilityViewIsModal>
           <View style={{ width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", backgroundColor: phase === "failed" ? c.dangerSoft : phase === "success" ? c.successSoft : c.primarySoft }}>
@@ -89,6 +93,6 @@ export function DevicePrompt({
           ) : null}
         </View>
       </View>
-    </Modal>
+    </Overlay>
   );
 }

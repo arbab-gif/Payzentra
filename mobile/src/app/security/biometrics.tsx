@@ -1,32 +1,37 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { ScanFace } from "lucide-react-native";
 import { useState } from "react";
 import { View } from "react-native";
 import { BIOMETRIC_NAME, DevicePrompt } from "@/components/DevicePrompt";
 import { Loading, Screen } from "@/components/Screen";
 import { Alert, Button, StatusHero } from "@/components/ui";
-import { biometricOutcome, biometricsAvailable, enableBiometrics } from "@/lib/api";
-import { ROUTES } from "@/lib/store";
+import { biometricOutcome, enableBiometrics } from "@/lib/api";
+import { useRouteParams, useSeed } from "@/lib/preview";
+import { ROUTES, useApp } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import { useGuard } from "@/lib/useGuard";
+
+type Note = { tone: "info" | "warning"; title: string; body: string };
 
 /**
  * Offered once after the unlock code is set (and from Profile): open the app
  * with Face ID / fingerprint instead of typing the code.
  */
 export default function BiometricsSetup() {
-  const { from } = useLocalSearchParams<{ from?: "profile" | "home" }>();
+  const { from } = useRouteParams<{ from: "profile" | "home" }>();
   // Opened from Profile or a Home suggestion: go back there. Otherwise it is part of sign-up.
   const revisit = !!from;
-  const [prompt, setPrompt] = useState(false);
-  const [note, setNote] = useState<{ tone: "info" | "warning"; title: string; body: string } | null>(null);
+  const available = useApp((s) => s.scenarios.biometric !== "unavailable");
+  const seed = useSeed<{ prompt: boolean; note: Note }>();
+  const [prompt, setPrompt] = useState(seed.prompt ?? false);
+  const [note, setNote] = useState<Note | null>(seed.note ?? null);
   const allowed = useGuard(ROUTES.biometrics);
 
   if (!allowed) return <Loading />;
 
   const leave = () => (revisit && router.canGoBack() ? router.back() : router.replace(ROUTES.home as never));
 
-  if (!biometricsAvailable()) {
+  if (!available) {
     return (
       <Screen back={revisit} center footer={<Button title={revisit ? "Go back" : "Continue"} onPress={leave} />}>
         <StatusHero tone="warning" icon={ScanFace} title={`${BIOMETRIC_NAME} isn't set up on this phone`} body={`Add ${BIOMETRIC_NAME} in your phone's settings first. Until then, use your unlock code.`} />

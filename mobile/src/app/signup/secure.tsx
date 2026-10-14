@@ -8,6 +8,7 @@ import { OtpInput } from "@/components/OtpInput";
 import { Loading, PageTitle, Screen } from "@/components/Screen";
 import { Alert, Button, Card, Divider, IconBadge, Text } from "@/components/ui";
 import { confirmTotpSetup, startTotpSetup } from "@/lib/api";
+import { usePreview, useSeed } from "@/lib/preview";
 import { ROUTES } from "@/lib/store";
 import { fonts, radius, useColors } from "@/lib/theme";
 import { toast } from "@/lib/toast";
@@ -17,23 +18,25 @@ type Stage = "intro" | "link" | "verify";
 
 export default function SecureAccount() {
   const c = useColors();
-  const [stage, setStage] = useState<Stage>("intro");
-  const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null);
-  const [showQr, setShowQr] = useState(false);
+  const seed = useSeed<{ stage: Stage; setup: { secret: string; uri: string }; showQr: boolean; code: string; error: string }>();
+  const [stage, setStage] = useState<Stage>(seed.stage ?? "intro");
+  const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(seed.setup ?? null);
+  const [showQr, setShowQr] = useState(seed.showQr ?? false);
   const [copied, setCopied] = useState(false);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(seed.code ?? "");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(seed.error ?? null);
   const allowed = useGuard(ROUTES.secure, loading);
 
+  const preview = !!usePreview();
   useEffect(() => {
-    if (stage !== "link" || setup) return;
+    if (stage !== "link" || setup || preview) return;
     let live = true;
     startTotpSetup().then((res) => live && res.ok && setSetup(res.data));
     return () => {
       live = false;
     };
-  }, [stage, setup]);
+  }, [stage, setup, preview]);
 
   if (!allowed) return <Loading />;
 

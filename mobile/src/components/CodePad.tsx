@@ -1,6 +1,7 @@
 import { Delete, type LucideIcon } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Platform, Pressable, View } from "react-native";
+import { usePreview } from "@/lib/preview";
 import { fonts, useColors } from "@/lib/theme";
 import { haptic, Text } from "./ui";
 
@@ -27,14 +28,15 @@ export function CodePad({
   extra?: { Icon: LucideIcon; label: string; onPress: () => void };
 }) {
   const c = useColors();
+  const preview = !!usePreview();
   const [shake] = useState(() => new Animated.Value(0));
 
   // Shake the dots when an error appears.
   useEffect(() => {
-    if (!error) return;
+    if (!error || preview) return;
     haptic("error");
     Animated.sequence([10, -10, 6, -6, 0].map((x) => Animated.timing(shake, { toValue: x, duration: 60, useNativeDriver: Platform.OS !== "web" }))).start();
-  }, [error, shake]);
+  }, [error, shake, preview]);
 
   // Latest value, so fast typing doesn't read a stale render's value.
   const latest = useRef(value);
@@ -58,9 +60,9 @@ export function CodePad({
     onChange(latest.current);
   };
 
-  // Hardware keyboard in the browser.
+  // Hardware keyboard in the browser (not in the gallery, where many pads share one page).
   useEffect(() => {
-    if (Platform.OS !== "web") return;
+    if (Platform.OS !== "web" || preview) return;
     const doc = (globalThis as { document?: Document }).document;
     const onKey = (e: KeyboardEvent) => {
       if (/^\d$/.test(e.key)) press(e.key);

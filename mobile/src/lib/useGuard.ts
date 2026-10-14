@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useSyncExternalStore } from "react";
+import { usePreview } from "./preview";
 import { canVisit, nextRoute, useApp } from "./store";
 
 const subscribeHydration = (cb: () => void) => useApp.persist.onFinishHydration(cb);
@@ -21,11 +22,13 @@ export function useHydrated() {
  */
 export function useGuard(route: string, hold = false) {
   const hydrated = useHydrated();
+  // The screen gallery shows every step side by side, so nothing redirects there.
+  const preview = !!usePreview();
   const account = useApp((s) => s.account);
   const session = useApp((s) => s.session);
   const kyc = useApp((s) => s.kyc);
   const snapshot = { account, session, kyc };
-  const allowed = hydrated && (hold || canVisit(route, snapshot));
+  const allowed = preview || (hydrated && (hold || canVisit(route, snapshot)));
   const target = nextRoute(snapshot);
 
   useEffect(() => {

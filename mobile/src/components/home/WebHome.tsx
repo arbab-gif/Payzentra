@@ -1,7 +1,8 @@
 import { router } from "expo-router";
 import { Bell, History, RefreshCw } from "lucide-react-native";
-import { ScrollView, useWindowDimensions, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { FadeIn, Text } from "@/components/ui";
+import { useViewport } from "@/lib/layout";
 import { ROUTES } from "@/lib/store";
 import { radius, useColors } from "@/lib/theme";
 import { toast } from "@/lib/toast";
@@ -30,7 +31,7 @@ const TWO_COLUMNS = 1180;
  */
 export function WebHome({ m }: { m: HomeModel }) {
   const c = useColors();
-  const { width } = useWindowDimensions();
+  const { width } = useViewport();
   const twoCols = width >= TWO_COLUMNS;
   const today = new Date().toLocaleDateString("en-NG", { weekday: "long", day: "numeric", month: "long" });
   const name = [m.firstName, m.lastName].filter(Boolean).join(" ");
