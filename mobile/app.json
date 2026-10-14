@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Payzentra",
+    "slug": "payzentra",
+    "scheme": "payzentra",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#060915",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.payzentra.app"
+    },
+    "android": {
+      "package": "com.payzentra.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#060915",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "softwareKeyboardLayoutMode": "resize",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Payzentra uses your camera to take a live selfie that confirms your identity.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

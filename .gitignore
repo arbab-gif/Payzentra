@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output and caches
+.expo/
+.next/
+dist/
+web-build/
+out/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env*.local
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+*.mobileprovision
+
+# Local tooling
+.claude/settings.local.json
+.DS_Store
+npm-debug.*
+yarn-debug.*
+yarn-error.*
