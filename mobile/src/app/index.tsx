@@ -1,13 +1,16 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, router } from "expo-router";
-import { ArrowDownLeft, ArrowUpRight, Fingerprint, Lock, ReceiptText, ScanFace, ShieldCheck, Zap } from "lucide-react-native";
+import { ArrowUpRight } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Animated, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ShieldArt, WelcomeArt } from "@/components/Brand";
 import { useDemoSheet } from "@/components/DemoSheet";
+import { CoinLogo, type CoinCode } from "@/components/Logos";
 import { Button, Logo, Text } from "@/components/ui";
+import { useWebLayout } from "@/lib/layout";
 import { nextRoute, useApp } from "@/lib/store";
-import { radius } from "@/lib/theme";
+import { fonts, radius } from "@/lib/theme";
 
 /**
  * Full-bleed welcome hero, story style: segment bars across the top fill as
@@ -28,6 +31,7 @@ const GLASS_BORDER = "rgba(255,255,255,0.12)";
 export default function Welcome() {
   const insets = useSafeAreaInsets();
   const app = useApp();
+  const web = useWebLayout();
   const [page, setPage] = useState(0);
   const [progress] = useState(() => new Animated.Value(0));
 
@@ -43,36 +47,24 @@ export default function Welcome() {
 
   const slide = SLIDES[page];
 
+  if (web) return <WebWelcome page={page} setPage={setPage} progress={progress} />;
+
   return (
     <View style={{ flex: 1, backgroundColor: "#000000" }}>
-      <LinearGradient colors={["#0b0e24", "#000000"]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
-      <LinearGradient
-        // Fade each glow to the same colour at zero alpha so there is no dark seam.
-        colors={slide.art === "crypto" ? ["rgba(247,147,26,0.30)", "rgba(247,147,26,0)"] : slide.art === "secure" ? ["rgba(0,164,107,0.30)", "rgba(0,164,107,0)"] : ["rgba(102,124,255,0.38)", "rgba(102,124,255,0)"]}
-        start={{ x: 0.2, y: 0 }}
-        end={{ x: 0.6, y: 0.75 }}
-        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
-      />
+      {/* Indigo wash fading down into black */}
+      <LinearGradient colors={["rgba(102,124,255,0.26)", "rgba(102,124,255,0)"]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
 
-      {/* Story progress */}
-      <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 16, flexDirection: "row", gap: 6 }} accessibilityLabel={`Slide ${page + 1} of ${SLIDES.length}`}>
-        {SLIDES.map((s, i) => (
-          <View key={s.art} style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.25)", overflow: "hidden" }}>
-            <Animated.View
-              style={{
-                height: 3,
-                backgroundColor: WHITE,
-                width: i < page ? "100%" : i > page ? "0%" : progress.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
-              }}
-            />
-          </View>
-        ))}
-      </View>
-      <View style={{ paddingHorizontal: 20, paddingTop: 16, flexDirection: "row" }}>
+      {/* Logo + slide dots */}
+      <View style={{ paddingTop: insets.top + 16, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         {/* Hidden for demos: long-press the logo to open Demo controls. */}
         <Pressable onLongPress={() => useDemoSheet.getState().setOpen(true)} delayLongPress={600} accessible={false}>
           <Logo onDark />
         </Pressable>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }} accessible accessibilityLabel={`Slide ${page + 1} of ${SLIDES.length}`}>
+          {SLIDES.map((s, i) => (
+            <View key={s.art} style={{ width: i === page ? 16 : 9, height: 6, borderRadius: 3, backgroundColor: i === page ? WHITE : "rgba(255,255,255,0.25)" }} />
+          ))}
+        </View>
       </View>
 
       {/* Tap zones: left half = previous, right half = next */}
@@ -87,17 +79,72 @@ export default function Welcome() {
       </View>
 
       <View style={{ paddingHorizontal: 20, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 10 }}>
-        <Text variant="smallStrong" style={{ color: WHITE_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>
-          {slide.kicker}
-        </Text>
-        <Text variant="display" style={{ color: WHITE, marginBottom: 18 }} accessibilityRole="header">
+        <Text variant="display" center style={{ color: WHITE, marginBottom: 14 }} accessibilityRole="header">
           {slide.title}
         </Text>
         <Button title="Sign up" onPress={() => router.push("/signup")} />
         <Button title="Log in" variant="glass" onPress={() => router.push("/login")} />
-        <Text variant="caption" center style={{ color: "rgba(255,255,255,0.45)", marginTop: 6 }}>
-          By continuing you agree to our Terms of Use and Privacy Policy.
+        <Text variant="caption" center style={{ color: "rgba(255,255,255,0.45)" }}>
+          By continuing you agree to our <Text variant="caption" style={{ color: WHITE }}>Terms of Use</Text> and{" "}
+          <Text variant="caption" style={{ color: WHITE }}>Privacy Policy.</Text>
         </Text>
+      </View>
+    </View>
+  );
+}
+
+/** Desktop welcome: headline and actions on the left, the slide's product art on the right. */
+function WebWelcome({ page, setPage, progress }: { page: number; setPage: (p: number) => void; progress: Animated.Value }) {
+  const slide = SLIDES[page];
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000000" }}>
+      <LinearGradient colors={["#0b0e24", "#000000"]} style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />
+      <LinearGradient
+        colors={slide.art === "crypto" ? ["rgba(247,147,26,0.26)", "rgba(247,147,26,0)"] : slide.art === "secure" ? ["rgba(0,164,107,0.26)", "rgba(0,164,107,0)"] : ["rgba(102,124,255,0.34)", "rgba(102,124,255,0)"]}
+        start={{ x: 0.9, y: 0 }}
+        end={{ x: 0.35, y: 0.9 }}
+        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}
+      />
+      {/* Top bar */}
+      <View style={{ height: 80, flexDirection: "row", alignItems: "center", paddingHorizontal: 48, gap: 12 }}>
+        <Pressable onLongPress={() => useDemoSheet.getState().setOpen(true)} delayLongPress={600} accessible={false}>
+          <Logo onDark />
+        </Pressable>
+        <View style={{ flex: 1 }} />
+        <Button title="Log in" variant="glass" size="md" onPress={() => router.push("/login")} />
+        <Button title="Sign up" size="md" onPress={() => router.push("/signup")} />
+      </View>
+
+      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 48, gap: 48, maxWidth: 1280, width: "100%", alignSelf: "center" }}>
+        <View style={{ flex: 1, gap: 18, maxWidth: 560 }}>
+          <Text variant="smallStrong" style={{ color: WHITE_MUTED, textTransform: "uppercase", letterSpacing: 1 }}>{slide.kicker}</Text>
+          <Text style={{ fontFamily: fonts.extrabold, fontSize: 64, lineHeight: 68, letterSpacing: -2.4, color: WHITE }} accessibilityRole="header">
+            {slide.title}
+          </Text>
+          <Text style={{ fontSize: 18, lineHeight: 28, color: WHITE_MUTED, maxWidth: 480, fontFamily: fonts.regular }}>
+            Send to any bank, pay bills and buy crypto — from one naira account.
+          </Text>
+          <View style={{ flexDirection: "row", gap: 12, marginTop: 12 }}>
+            <Button title="Create free account" onPress={() => router.push("/signup")} style={{ paddingHorizontal: 28 }} />
+            <Button title="Log in" variant="glass" onPress={() => router.push("/login")} style={{ paddingHorizontal: 28 }} />
+          </View>
+          <Text variant="caption" style={{ color: "rgba(255,255,255,0.45)" }}>By continuing you agree to our Terms of Use and Privacy Policy.</Text>
+          {/* Slide indicators: click to jump */}
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 28 }} accessibilityLabel={`Slide ${page + 1} of ${SLIDES.length}`}>
+            {SLIDES.map((s, i) => (
+              <Pressable key={s.art} onPress={() => setPage(i)} accessibilityRole="button" accessibilityLabel={`Show ${s.kicker}`} style={{ width: 56, paddingVertical: 8 }}>
+                <View style={{ height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.25)", overflow: "hidden" }}>
+                  <Animated.View style={{ height: 3, backgroundColor: WHITE, width: i < page ? "100%" : i > page ? "0%" : progress.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }) }} />
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <View style={{ transform: [{ scale: 1.2 }] }}>
+            <Art kind={slide.art} />
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -112,46 +159,13 @@ function Glass({ children, style }: { children: React.ReactNode; style?: object 
 }
 
 function Art({ kind }: { kind: "wallet" | "crypto" | "secure" }) {
-  if (kind === "wallet") {
-    return (
-      <View style={{ width: 320, gap: 12 }} pointerEvents="none">
-        <Glass style={{ padding: 20, borderRadius: radius.xl }}>
-          <Text variant="small" style={{ color: WHITE_MUTED }}>Main · NGN</Text>
-          <Text variant="display" style={{ color: WHITE, fontSize: 40, lineHeight: 46, marginTop: 4 }}>
-            ₦1,284,500<Text variant="title" style={{ color: WHITE_MUTED }}>.00</Text>
-          </Text>
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 18 }}>
-            {["Add money", "Send", "Pay bills"].map((a) => (
-              <View key={a} style={{ flex: 1, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
-                <Text variant="caption" style={{ color: WHITE }}>{a}</Text>
-              </View>
-            ))}
-          </View>
-        </Glass>
-        <Glass style={{ paddingVertical: 6 }}>
-          {[
-            { Icon: ArrowDownLeft, t: "Transfer from GTBank", v: "+₦250,000", c: "#2bc48a" },
-            { Icon: ReceiptText, t: "TV subscription", v: "−₦12,500", c: WHITE },
-            { Icon: Zap, t: "Electricity token", v: "−₦8,000", c: WHITE },
-          ].map(({ Icon, t, v, c }) => (
-            <View key={t} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 10 }}>
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" }}>
-                <Icon size={18} color={WHITE} />
-              </View>
-              <Text variant="smallStrong" style={{ color: WHITE, flex: 1 }}>{t}</Text>
-              <Text variant="smallStrong" style={{ color: c }}>{v}</Text>
-            </View>
-          ))}
-        </Glass>
-      </View>
-    );
-  }
+  if (kind === "wallet") return <WelcomeArt />;
   if (kind === "crypto") {
-    const coins = [
-      { s: "₿", n: "Bitcoin", p: "+2.4%", bg: "#f7931a" },
-      { s: "Ξ", n: "Ethereum", p: "+1.1%", bg: "#627eea" },
-      { s: "₮", n: "Tether", p: "0.0%", bg: "#26a17b" },
-      { s: "$", n: "USD Coin", p: "0.0%", bg: "#2775ca" },
+    const coins: { code: CoinCode; n: string; p: string }[] = [
+      { code: "BTC", n: "Bitcoin", p: "+2.4%" },
+      { code: "ETH", n: "Ethereum", p: "+1.1%" },
+      { code: "USDT", n: "Tether", p: "0.0%" },
+      { code: "USDC", n: "USD Coin", p: "0.0%" },
     ];
     return (
       <View style={{ width: 320, gap: 12 }} pointerEvents="none">
@@ -169,9 +183,7 @@ function Art({ kind }: { kind: "wallet" | "crypto" | "secure" }) {
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
           {coins.map((k) => (
             <Glass key={k.n} style={{ width: 155, flexDirection: "row", alignItems: "center", gap: 10, padding: 12 }}>
-              <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: k.bg, alignItems: "center", justifyContent: "center" }}>
-                <Text variant="bodyStrong" style={{ color: WHITE }}>{k.s}</Text>
-              </View>
+              <CoinLogo code={k.code} size={34} />
               <View>
                 <Text variant="smallStrong" style={{ color: WHITE }}>{k.n}</Text>
                 <Text variant="caption" style={{ color: k.p.startsWith("+") ? "#2bc48a" : WHITE_MUTED }}>{k.p}</Text>
@@ -182,36 +194,6 @@ function Art({ kind }: { kind: "wallet" | "crypto" | "secure" }) {
       </View>
     );
   }
-  return (
-    <View style={{ width: 320, height: 300, alignItems: "center", justifyContent: "center" }} pointerEvents="none">
-      <View style={{ width: 150, height: 150, borderRadius: 75, backgroundColor: "rgba(0,164,107,0.18)", alignItems: "center", justifyContent: "center" }}>
-        <View style={{ width: 104, height: 104, borderRadius: 52, backgroundColor: "rgba(0,164,107,0.28)", alignItems: "center", justifyContent: "center" }}>
-          <ShieldCheck size={56} color={WHITE} strokeWidth={1.6} />
-        </View>
-      </View>
-      {[
-        { Icon: ScanFace, t: "Live selfie check", x: -84, y: -112 },
-        { Icon: Fingerprint, t: "BVN / NIN check", x: 92, y: -40 },
-        { Icon: Lock, t: "Encrypted data", x: -70, y: 112 },
-      ].map(({ Icon, t, x, y }) => (
-        <Glass
-          key={t}
-          style={{
-            position: "absolute",
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 8,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderRadius: radius.pill,
-            transform: [{ translateX: x }, { translateY: y }],
-          }}
-        >
-          <Icon size={16} color="#2bc48a" />
-          <Text variant="caption" style={{ color: WHITE }}>{t}</Text>
-        </Glass>
-      ))}
-    </View>
-  );
+  return <ShieldArt size={230} />;
 }
 

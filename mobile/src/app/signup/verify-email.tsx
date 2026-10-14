@@ -55,7 +55,7 @@ export default function VerifyEmail() {
     }
     setDone(true);
     setLoading(false);
-    setTimeout(() => router.replace(ROUTES.kycIntro as never), 1400);
+    setTimeout(() => router.replace(ROUTES.password as never), 1200);
   };
 
   const resend = async () => {
@@ -70,7 +70,7 @@ export default function VerifyEmail() {
   if (done) {
     return (
       <Screen center>
-        <StatusHero tone="success" icon={CheckCircle2} title="Email verified" body="Next, let's verify your identity." />
+        <StatusHero tone="success" icon={CheckCircle2} title="Email verified" body="Next, create a password for your account." />
       </Screen>
     );
   }

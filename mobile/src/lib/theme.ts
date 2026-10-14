@@ -1,3 +1,4 @@
+import { createContext, useContext } from "react";
 import { Platform, type TextStyle } from "react-native";
 import { useApp } from "./store";
 
@@ -70,7 +71,13 @@ const dark: typeof light = {
 
 export type Colors = typeof light;
 
+const ColorCtx = createContext<Colors | null>(null);
+export const ForceDark = ColorCtx.Provider;
+export const darkColors = dark;
+
 export function useColors(): Colors {
+  const override = useContext(ColorCtx);
+  if (override) return override;
   return useApp((s) => s.theme) === "dark" ? dark : light;
 }
 

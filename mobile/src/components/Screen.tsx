@@ -3,19 +3,15 @@ import { ChevronLeft } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useWebLayout } from "@/lib/layout";
+import { STEPS, type StepKey } from "@/lib/steps";
 import { useColors } from "@/lib/theme";
+import { TopGlow } from "./Brand";
 import { useDemoSheet } from "./DemoSheet";
 import { FadeIn, Text } from "./ui";
+import { WebAuthShell } from "./WebShell";
 
-/** The four onboarding steps, matching "How it works" on the verify intro. Sign-up screens sit before them and show no bar. */
-export type StepKey = "details" | "id" | "selfie" | "address";
-
-const STEPS: { key: StepKey; label: string }[] = [
-  { key: "details", label: "Your details" },
-  { key: "id", label: "BVN or NIN" },
-  { key: "selfie", label: "Selfie check" },
-  { key: "address", label: "Home address" },
-];
+export type { StepKey };
 
 type Props = {
   children: ReactNode;
@@ -31,6 +27,7 @@ type Props = {
 export function Screen({ children, step, back, footer, scroll = true, center }: Props) {
   const c = useColors();
   const insets = useSafeAreaInsets();
+  const web = useWebLayout();
   const index = step ? STEPS.findIndex((s) => s.key === step) : -1;
 
   const onBack = () => {
@@ -38,6 +35,14 @@ export function Screen({ children, step, back, footer, scroll = true, center }: 
     if (router.canGoBack()) router.back();
     else router.replace("/");
   };
+
+  if (web) {
+    return (
+      <WebAuthShell step={step} onBack={back ? onBack : undefined} footer={footer} center={center}>
+        {children}
+      </WebAuthShell>
+    );
+  }
 
   const body = (
     <View style={[{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24 }, center && { flexGrow: 1, justifyContent: "center" }]}>
@@ -47,8 +52,9 @@ export function Screen({ children, step, back, footer, scroll = true, center }: 
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <TopGlow />
       {/* Header */}
-      <View style={{ paddingTop: insets.top, backgroundColor: c.bg }}>
+      <View style={{ paddingTop: insets.top }}>
         <View style={{ height: 56, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 8 }}>
           {back ? (
             <RoundButton label="Back" onPress={onBack}>

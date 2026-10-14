@@ -5,10 +5,19 @@ import { createJSONStorage, persist } from "zustand/middleware";
 export type IdType = "BVN" | "NIN";
 export type KycStatus = "none" | "pending" | "verified" | "rejected";
 
+/** What the simulated backend and device return, chosen in Demo controls. */
 export type Scenarios = {
   signup: "ok" | "duplicate";
   login: "ok" | "wrong_password" | "locked";
-  identity: "match" | "mismatch" | "not_found" | "duplicate" | "provider_down";
+  /** Signing in on this phone before (trusted) or on a phone we haven't seen (new: extra email check). */
+  device: "trusted" | "new";
+  /** Face ID / fingerprint prompt outcome. "unavailable" = the device has no biometrics set up. */
+  biometric: "success" | "fail" | "cancel" | "unavailable";
+  /** Passkey prompt outcome. "unsupported" = the device or browser can't use passkeys. */
+  passkey: "success" | "fail" | "unsupported";
+  /** What happens to the saved session at the next unlock. */
+  session: "active" | "refresh" | "expired";
+  identity: "match" | "mismatch" | "not_found" | "duplicate" | "unsupported" | "provider_down";
   liveness: "pass" | "fail_once" | "fail_always";
   decision: "verified" | "pending" | "rejected";
   camera: "real" | "simulated";
@@ -19,6 +28,10 @@ export type Scenarios = {
 export const defaultScenarios: Scenarios = {
   signup: "ok",
   login: "ok",
+  device: "trusted",
+  biometric: "success",
+  passkey: "success",
+  session: "active",
   identity: "match",
   liveness: "pass",
   decision: "verified",
@@ -28,8 +41,15 @@ export const defaultScenarios: Scenarios = {
 
 export type Account = {
   email: string;
-  password: string;
+  /** Set after the email is verified. */
+  password: string | null;
   emailVerified: boolean;
+  /** 6-digit code that opens the app on this device. Not the transaction PIN. */
+  unlockCode: string | null;
+  /** Wrong unlock-code attempts since the last success. */
+  unlockFailures: number;
+  biometrics: boolean;
+  passkey: boolean;
   totpSecret: string | null;
   mfaEnabled: boolean;
   recoveryCodes: string[];
@@ -55,14 +75,10 @@ export type Address = {
 };
 
 export type Kyc = {
-  firstName: string;
-  lastName: string;
-  phone: string;
-  dob: string;
-  detailsDone: boolean;
   idType: IdType | null;
   idNumber: string;
   consentAt: string | null;
+  /** Details returned by the identity provider for the customer to review. */
   identity: VerifiedIdentity | null;
   identityConfirmed: boolean;
   livenessAttempts: number;
@@ -74,11 +90,6 @@ export type Kyc = {
 };
 
 export const emptyKyc: Kyc = {
-  firstName: "",
-  lastName: "",
-  phone: "",
-  dob: "",
-  detailsDone: false,
   idType: null,
   idNumber: "",
   consentAt: null,
@@ -92,7 +103,14 @@ export const emptyKyc: Kyc = {
   rejectionReason: null,
 };
 
-type Session = { authenticated: boolean; mfaVerified: boolean };
+/**
+ * authenticated: this device holds a session (refreshable) for the account.
+ * unlocked: the app has been unlocked since it was opened. Never saved, so every
+ * app open starts locked.
+ */
+type Session = { authenticated: boolean; mfaVerified: boolean; unlocked: boolean };
+
+const signedOut: Session = { authenticated: false, mfaVerified: false, unlocked: false };
 
 type State = {
   account: Account | null;
@@ -102,13 +120,17 @@ type State = {
   theme: "dark" | "light";
   /** Privacy mode: mask every amount on Home. */
   hideBalances: boolean;
+  /** Browser preview only: phone-sized app or the full desktop web app. */
+  viewMode: "mobile" | "web";
   setAccount: (patch: Partial<Account>) => void;
-  createAccount: (email: string, password: string) => void;
+  startAccount: (email: string) => void;
   setSession: (patch: Partial<Session>) => void;
   setKyc: (patch: Partial<Kyc>) => void;
   setScenario: <K extends keyof Scenarios>(key: K, value: Scenarios[K]) => void;
   setTheme: (theme: "dark" | "light") => void;
   setHideBalances: (hide: boolean) => void;
+  setViewMode: (mode: "mobile" | "web") => void;
+  /** Log out on this device: ends the session and forgets this device's unlock code and biometrics. */
   signOut: () => void;
   resetAll: () => void;
 };
@@ -117,127 +139,169 @@ export const useApp = create<State>()(
   persist(
     (set) => ({
       account: null,
-      session: { authenticated: false, mfaVerified: false },
+      session: signedOut,
       kyc: emptyKyc,
       scenarios: defaultScenarios,
       theme: "dark",
       hideBalances: false,
-      setAccount: (patch) =>
-        set((s) => (s.account ? { account: { ...s.account, ...patch } } : s)),
-      createAccount: (email, password) =>
+      viewMode: "mobile",
+      setAccount: (patch) => set((s) => (s.account ? { account: { ...s.account, ...patch } } : s)),
+      startAccount: (email) =>
         set({
           account: {
             email,
-            password,
+            password: null,
             emailVerified: false,
+            unlockCode: null,
+            unlockFailures: 0,
+            biometrics: false,
+            passkey: false,
             totpSecret: null,
             mfaEnabled: false,
             recoveryCodes: [],
             recoveryCodesSaved: false,
           },
-          session: { authenticated: true, mfaVerified: false },
+          // A brand-new sign-up is already "in" on this device.
+          session: { authenticated: true, mfaVerified: true, unlocked: true },
           kyc: emptyKyc,
         }),
       setSession: (patch) => set((s) => ({ session: { ...s.session, ...patch } })),
       setKyc: (patch) => set((s) => ({ kyc: { ...s.kyc, ...patch } })),
-      setScenario: (key, value) =>
-        set((s) => ({ scenarios: { ...s.scenarios, [key]: value } })),
+      setScenario: (key, value) => set((s) => ({ scenarios: { ...s.scenarios, [key]: value } })),
       setTheme: (theme) => set({ theme }),
       setHideBalances: (hideBalances) => set({ hideBalances }),
-      signOut: () => set({ session: { authenticated: false, mfaVerified: false } }),
-      resetAll: () =>
-        set({
-          account: null,
-          session: { authenticated: false, mfaVerified: false },
-          kyc: emptyKyc,
-        }),
+      setViewMode: (viewMode) => set({ viewMode }),
+      signOut: () =>
+        set((s) => ({
+          session: signedOut,
+          account: s.account ? { ...s.account, unlockCode: null, unlockFailures: 0, biometrics: false } : null,
+        })),
+      resetAll: () => set({ account: null, session: signedOut, kyc: emptyKyc }),
     }),
     {
       name: "payzentra-demo",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
-      // v3 = dark-first mint design; move saved demos onto it.
-      migrate: (persisted) => ({ ...(persisted as object), theme: "dark" }) as State,
+      // The app always opens locked: "unlocked" is never written to storage.
+      partialize: (s) => ({ ...s, session: { ...s.session, unlocked: false } }),
+      // v3 → v4: unlock code, biometrics and passkey on the account; verification no longer
+      // needs the separate personal-details step.
+      migrate: (persisted) => {
+        const p = (persisted ?? {}) as Partial<State>;
+        const a = p.account as (Partial<Account> & { email: string }) | null | undefined;
+        return {
+          ...p,
+          theme: p.theme ?? "dark",
+          account: a ? { unlockCode: null, unlockFailures: 0, biometrics: false, passkey: false, ...a } : null,
+          session: { ...signedOut, ...(p.session ?? {}), unlocked: false },
+        } as State;
+      },
       // Fill in scenario keys added after a demo was saved.
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<State>;
-        return { ...current, ...p, scenarios: { ...defaultScenarios, ...p.scenarios } };
+        return { ...current, ...p, session: { ...signedOut, ...(p.session ?? {}), unlocked: false }, scenarios: { ...defaultScenarios, ...p.scenarios } };
       },
     },
   ),
 );
 
-/** Every onboarding route in journey order. */
+/** Every route in journey order. */
 export const ROUTES = {
   welcome: "/",
   welcomeBack: "/welcome-back",
   signup: "/signup",
   verifyEmail: "/signup/verify-email",
-  // Authenticator set-up is optional and lives outside onboarding (Settings, later).
+  password: "/signup/password",
+  setUnlockCode: "/security/unlock-code",
+  biometrics: "/security/biometrics",
+  forgotCode: "/security/forgot-code",
+  unlock: "/unlock",
+  sessionExpired: "/session-expired",
+  // Optional authenticator app (Profile → Security).
   secure: "/signup/secure",
   recoveryCodes: "/signup/recovery-codes",
   kycIntro: "/verify",
-  details: "/verify/details",
   identity: "/verify/identity",
   identityConfirm: "/verify/identity/confirm",
   selfie: "/verify/selfie",
   address: "/verify/address",
   status: "/verify/status",
   home: "/home",
+  profile: "/profile",
+  activity: "/activity",
   login: "/login",
   loginMfa: "/login/mfa",
 } as const;
 
+type Snapshot = Pick<State, "account" | "session" | "kyc">;
+
 /**
- * Where the customer should be right now. Used to resume after an
- * interruption (closing the tab, logging back in) and to stop people
- * skipping steps by typing a URL.
+ * Where the customer should be right now. Used to resume after an interruption
+ * and to stop people skipping steps by typing a URL.
+ * Sign-up: email → email code → password → unlock code → Home. Identity
+ * verification is optional at this point and started from Home or Profile.
  */
-export function nextRoute(s: Pick<State, "account" | "session" | "kyc">): string {
-  const { account, session, kyc } = s;
-  if (!account || !session.authenticated) return ROUTES.welcome;
+export function nextRoute(s: Snapshot): string {
+  const { account, session } = s;
+  if (!account) return ROUTES.welcome;
+  if (!session.authenticated) return account.password ? ROUTES.welcomeBack : ROUTES.welcome;
   if (!account.emailVerified) return ROUTES.verifyEmail;
+  if (!account.password) return ROUTES.password;
   // Two-step sign-in only applies once the customer has turned it on.
   if (account.mfaEnabled && !session.mfaVerified) return ROUTES.loginMfa;
-  // Once submitted (verified, in review or needing a fix) the customer lives on Home,
-  // which surfaces any verification action that's still needed.
-  if (kyc.status !== "none" || kyc.livenessLocked) return ROUTES.home;
-  if (!kyc.detailsDone) return ROUTES.kycIntro;
-  if (!kyc.identity) return ROUTES.identity;
+  if (!account.unlockCode) return ROUTES.setUnlockCode;
+  if (!session.unlocked) return ROUTES.unlock;
+  return ROUTES.home;
+}
+
+/** The verification step to continue from (Home banner, Profile). */
+export function kycNext(kyc: Kyc): string {
+  if (kyc.status !== "none" || kyc.livenessLocked) return ROUTES.status;
+  if (!kyc.identity) return ROUTES.kycIntro;
   if (!kyc.identityConfirmed) return ROUTES.identityConfirm;
   if (!kyc.livenessPassed) return ROUTES.selfie;
-  // The address step also submits; an unsubmitted address (e.g. an interrupted submit) returns here.
   return ROUTES.address;
 }
 
-/** KYC steps a customer may go back and edit before submitting. */
-const KYC_ORDER: string[] = [
-  ROUTES.kycIntro,
-  ROUTES.details,
-  ROUTES.identity,
-  ROUTES.identityConfirm,
-  ROUTES.selfie,
-  ROUTES.address,
-];
-
-export function canVisit(
-  route: string,
-  s: Pick<State, "account" | "session" | "kyc">,
-): boolean {
+export function canVisit(route: string, s: Snapshot): boolean {
   const next = nextRoute(s);
   if (route === next) return true;
-  // Optional authenticator set-up, reachable once signed in (e.g. from Settings).
-  if (route === ROUTES.secure) return !!s.account?.emailVerified && s.session.authenticated && !s.account.mfaEnabled;
-  if (route === ROUTES.recoveryCodes) return !!s.account?.mfaEnabled && s.session.authenticated && !s.account.recoveryCodesSaved;
-  if (route === ROUTES.details && next === ROUTES.kycIntro) return true;
-  // The verification result shows right after submitting, and from Home's notice.
-  if (route === ROUTES.status) return next === ROUTES.home;
-  const ri = KYC_ORDER.indexOf(route);
-  const ni = KYC_ORDER.indexOf(next);
-  if (ri === -1 || ni === -1 || s.kyc.status !== "none") return false;
-  // Identity is locked once the provider has returned a match; selfie once passed.
-  if (route === ROUTES.identity && s.kyc.identity) return false;
-  if (route === ROUTES.identityConfirm && s.kyc.identityConfirmed) return false;
-  if (route === ROUTES.selfie && s.kyc.livenessPassed) return false;
-  return ri < ni;
+  const inApp = next === ROUTES.home;
+  const { account, kyc } = s;
+  switch (route) {
+    // Reached from the unlock screen.
+    case ROUTES.forgotCode:
+      return next === ROUTES.unlock;
+    // Offered once after setting an unlock code; also from Profile.
+    case ROUTES.biometrics:
+      return inApp;
+    // Changing or resetting the code happens from Profile / forgot-code with ?mode=.
+    case ROUTES.setUnlockCode:
+      return inApp;
+    case ROUTES.profile:
+    case ROUTES.activity:
+      return inApp;
+    case ROUTES.secure:
+      return inApp && !account?.mfaEnabled;
+    case ROUTES.recoveryCodes:
+      return inApp && !!account?.mfaEnabled && !account.recoveryCodesSaved;
+  }
+  if (!inApp) return false;
+  // Verification, started from Home or Profile once signed in.
+  const open = kyc.status === "none" && !kyc.livenessLocked;
+  switch (route) {
+    case ROUTES.kycIntro:
+      return open && !kyc.identityConfirmed;
+    case ROUTES.identity:
+      return open && !kyc.identityConfirmed;
+    case ROUTES.identityConfirm:
+      return open && !!kyc.identity && !kyc.identityConfirmed;
+    case ROUTES.selfie:
+      return open && kyc.identityConfirmed && !kyc.livenessPassed;
+    case ROUTES.address:
+      return open && kyc.livenessPassed;
+    case ROUTES.status:
+      return kyc.status !== "none" || kyc.livenessLocked;
+  }
+  return false;
 }

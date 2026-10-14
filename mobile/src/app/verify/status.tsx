@@ -1,12 +1,12 @@
 import { router } from "expo-router";
-import { CheckCircle2, Clock3, Info, ShieldAlert, Unlock } from "lucide-react-native";
+import { CheckCircle2, Clock3, ShieldAlert, ShieldCheck } from "lucide-react-native";
 import { useState } from "react";
 import { View } from "react-native";
 import { Loading, Screen } from "@/components/Screen";
 import { Alert, Button, Card, LinkText, StatusHero, Text } from "@/components/ui";
 import { restartAddressAfterRejection } from "@/lib/api";
 import { ROUTES, useApp } from "@/lib/store";
-import { radius, useColors } from "@/lib/theme";
+import { useColors } from "@/lib/theme";
 import { toast } from "@/lib/toast";
 import { useGuard } from "@/lib/useGuard";
 
@@ -28,27 +28,13 @@ export default function VerificationStatus() {
 
   if (kyc.status === "verified") {
     return (
-      <Screen footer={<><Button title="Go to my account" onPress={toHome} />{startAgainButton}</>}>
-        <View style={{ paddingTop: 24 }}>
-          <StatusHero
-            tone="success"
-            icon={CheckCircle2}
-            title={`You're verified${kyc.identity ? `, ${kyc.identity.firstName}` : ""}!`}
-            body="Your account is ready. You can now add money, send to banks, pay bills and trade crypto."
-          />
-        </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 28 }}>
-          {["Add money", "Send to banks", "Pay bills", "Buy & sell crypto"].map((t) => (
-            <View key={t} style={{ width: "48%", flexGrow: 1, flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: radius.md, backgroundColor: c.surface }}>
-              <Unlock size={16} color={c.success} />
-              <Text variant="smallStrong">{t}</Text>
-            </View>
-          ))}
-        </View>
-        <View style={{ flexDirection: "row", gap: 10, marginTop: 14, padding: 14, borderRadius: radius.md, borderWidth: 1, borderStyle: "dashed", borderColor: c.border }}>
-          <Info size={16} color={c.muted} style={{ marginTop: 2 }} />
-          <Text variant="small" tone="muted" style={{ flex: 1 }}>Daily and monthly limits apply. You can raise them later from Settings.</Text>
-        </View>
+      <Screen center footer={<Button title="Go to Home" onPress={toHome} />}>
+        <StatusHero
+          tone="primary"
+          icon={ShieldCheck}
+          title="Identity verified"
+          body={`Your ${kyc.idType ?? "ID"} and selfie are confirmed. Your wallet is now active and you can use the services available to your account.`}
+        />
       </Screen>
     );
   }

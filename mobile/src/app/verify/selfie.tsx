@@ -1,14 +1,16 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 import { Camera, CameraOff, CheckCircle2, ChevronLeft, Glasses, Lightbulb, ScanFace, UserRoundX } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Linking, Pressable, View } from "react-native";
+import { Image, Linking, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Circle, Ellipse, Path } from "react-native-svg";
+import Svg, { Ellipse, Path } from "react-native-svg";
 import { Loading, Screen } from "@/components/Screen";
-import { SelfieIllustration } from "@/components/SelfieIllustration";
+import { cameraFace, SelfieArt } from "@/components/Brand";
 import { Alert, Button, Card, StatusHero, Text } from "@/components/ui";
 import { MAX_LIVENESS_ATTEMPTS, submitLiveness } from "@/lib/api";
+import { useWebLayout } from "@/lib/layout";
 import { ROUTES, useApp } from "@/lib/store";
 import { useColors } from "@/lib/theme";
 import { useGuard } from "@/lib/useGuard";
@@ -37,6 +39,7 @@ export default function Selfie() {
   const [prompt, setPrompt] = useState(0);
   const [attemptsLeft, setAttemptsLeft] = useState(MAX_LIVENESS_ATTEMPTS - attemptsUsed);
   const allowed = useGuard(ROUTES.selfie, stage === "processing" || stage === "passed" || stage === "manual");
+  const web = useWebLayout();
 
   // Walk through the liveness prompts, then submit.
   useEffect(() => {
@@ -74,8 +77,10 @@ export default function Selfie() {
 
   if (stage === "capture") {
     const progress = Math.min(prompt / PROMPTS.length, 1);
-    return (
+    const camera = (
       <View style={{ flex: 1, backgroundColor: CAMERA_BG }}>
+        {/* One status bar only (the phone's own), always light over the dark camera. */}
+        <StatusBar style="light" />
         <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 12, height: insets.top + 64, justifyContent: "center" }}>
           <Pressable onPress={() => setStage("intro")} accessibilityRole="button" accessibilityLabel="Back" hitSlop={10} style={{ width: 44, height: 44, justifyContent: "center" }}>
             <ChevronLeft size={30} color="#ffffff" />
@@ -89,9 +94,9 @@ export default function Selfie() {
             <Svg width={W} height={H} style={{ position: "absolute" }}>
               {/* Mask: paint the background everywhere outside the oval so the preview is a true ellipse */}
               <Path d={`M0 0 H${W} V${H} H0 Z ${OVAL}`} fill={CAMERA_BG} fillRule="evenodd" />
-              <Ellipse cx={W / 2} cy={H / 2} rx={RX} ry={RY} stroke="#ffffff" strokeWidth={1.5} fill="none" />
+              <Ellipse cx={W / 2} cy={H / 2} rx={RX} ry={RY} stroke="#ffffff" strokeWidth={5} fill="none" />
               {/* Thin progress trace over the outline while the liveness steps run */}
-              <Path d={OVAL} stroke={c.primary} strokeWidth={3} fill="none" strokeLinecap="round" strokeDasharray={[PERIMETER * progress, PERIMETER]} />
+              <Path d={OVAL} stroke={c.primary} strokeWidth={5} fill="none" strokeLinecap="round" strokeDasharray={[PERIMETER * progress, PERIMETER]} />
             </Svg>
           </View>
           <Text variant="body" center style={{ color: "#ffffff", marginTop: 36, fontSize: 19, lineHeight: 26 }} accessibilityLiveRegion="assertive">
@@ -103,6 +108,16 @@ export default function Selfie() {
             Demo: simulated camera
           </Text>
         )}
+      </View>
+    );
+    if (!web) return camera;
+    // Desktop: the camera sits in a centred card on a dark page.
+    return (
+      <View style={{ flex: 1, backgroundColor: "#000000", alignItems: "center", justifyContent: "center", padding: 32 }}>
+        <View style={{ width: 460, height: 640, maxHeight: "100%", borderRadius: 28, overflow: "hidden", borderWidth: 1, borderColor: "#232329" }}>{camera}</View>
+        <Text variant="small" center style={{ color: "rgba(255,255,255,0.55)", marginTop: 16, maxWidth: 460 }}>
+          Look straight at your webcam. Uploaded photos aren&apos;t accepted.
+        </Text>
       </View>
     );
   }
@@ -180,15 +195,12 @@ export default function Selfie() {
   return (
     <Screen step="selfie" back center footer={<Button title="Start camera" icon={Camera} onPress={start} />}>
       <View style={{ alignItems: "center" }}>
-        <SelfieIllustration size={280} />
+        <SelfieArt />
         <Text variant="title" center style={{ marginTop: 20 }} accessibilityRole="header">
           Take a selfie
         </Text>
         <Text tone="muted" center style={{ marginTop: 10, maxWidth: 320 }}>
           Remove any face masks, sunglasses or hats, and find somewhere with good light.
-        </Text>
-        <Text variant="caption" tone="subtle" center style={{ marginTop: 16 }}>
-          Camera only — uploaded photos aren&apos;t accepted.
         </Text>
       </View>
     </Screen>
@@ -216,17 +228,20 @@ function Tips() {
   );
 }
 
+/**
+ * Demo camera feed: the photo from the Figma camera screen, scaled and offset so the
+ * face sits in the oval exactly as designed (Figma oval preview: 300 × 404 at 44.9, 157.3
+ * on a 390 × 844 photo).
+ */
 function SimulatedFace({ turn }: { turn: boolean }) {
+  const k = (RX * 2) / 300.12;
   return (
-    <View style={{ flex: 1, backgroundColor: "#1a1a1f" }} accessibilityLabel="Simulated camera preview">
-      <Svg width="100%" height="100%" viewBox="0 0 120 160" preserveAspectRatio="xMidYMid slice" style={{ transform: [{ translateX: turn ? 10 : 0 }] }}>
-        <Ellipse cx="60" cy="70" rx="30" ry="38" fill="#c08b6a" />
-        <Path d="M30 62c0-26 14-38 30-38s30 12 30 38c-6-12-16-18-30-18S36 50 30 62z" fill="#1d1410" />
-        <Circle cx="48" cy="72" r="3" fill="#1d1410" />
-        <Circle cx="72" cy="72" r="3" fill="#1d1410" />
-        <Path d="M52 92q8 6 16 0" stroke="#7a4a35" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <Path d="M12 160c4-30 22-44 48-44s44 14 48 44z" fill="#3a3f63" />
-      </Svg>
+    <View style={{ flex: 1, backgroundColor: "#1a1a1f", overflow: "hidden" }} accessibilityLabel="Simulated camera preview">
+      <Image
+        source={cameraFace}
+        style={{ position: "absolute", width: 390 * k, height: 844 * k, left: -44.94 * k, top: -157.34 * k, transform: [{ translateX: turn ? 8 : 0 }] }}
+        resizeMode="cover"
+      />
     </View>
   );
 }

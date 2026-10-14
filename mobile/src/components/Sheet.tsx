@@ -67,6 +67,7 @@ export function SelectField({
   placeholder,
   onChange,
   error,
+  showLabel = true,
 }: {
   label: string;
   value: string;
@@ -74,6 +75,8 @@ export function SelectField({
   placeholder: string;
   onChange: (v: string) => void;
   error?: string | null;
+  /** Hide the visual label inside grouped forms; still read by screen readers. */
+  showLabel?: boolean;
 }) {
   const c = useColors();
   const [open, setOpen] = useState(false);
@@ -82,13 +85,13 @@ export function SelectField({
 
   return (
     <View style={{ gap: 8 }}>
-      <Text variant="label">{label}</Text>
+      {showLabel && <Text variant="label">{label}</Text>}
       <Pressable
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value || "not selected"}`}
         style={{
-          height: 60,
+          height: 56,
           borderRadius: radius.md,
           borderWidth: 2,
           borderColor: error ? c.danger : "transparent",
@@ -98,7 +101,7 @@ export function SelectField({
           alignItems: "center",
         }}
       >
-        <Text style={{ flex: 1, color: value ? c.text : c.subtle }}>{value || placeholder}</Text>
+        <Text style={{ flex: 1, fontFamily: fonts.medium, fontSize: 17, color: value ? c.text : c.subtle }}>{value || placeholder}</Text>
         <ChevronDown size={20} color={c.muted} />
       </Pressable>
       {error && (

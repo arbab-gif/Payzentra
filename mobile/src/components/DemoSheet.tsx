@@ -18,6 +18,10 @@ export const useDemoSheet = create<{ open: boolean; setOpen: (v: boolean) => voi
 const OPTIONS: { key: keyof Scenarios; label: string; values: [string, string][] }[] = [
   { key: "signup", label: "Sign up", values: [["ok", "Success"], ["duplicate", "Email already registered"]] },
   { key: "login", label: "Log in", values: [["ok", "Success"], ["wrong_password", "Wrong password"], ["locked", "Temporarily locked"]] },
+  { key: "device", label: "This device", values: [["trusted", "Signed in here before"], ["new", "New device (email check)"]] },
+  { key: "session", label: "Session at next unlock", values: [["active", "Still active"], ["refresh", "Timed out, refreshes quietly"], ["expired", "Expired, log in again"]] },
+  { key: "biometric", label: "Face ID / fingerprint", values: [["success", "Success"], ["fail", "Fails"], ["cancel", "Cancelled"], ["unavailable", "Not set up on phone"]] },
+  { key: "passkey", label: "Passkey", values: [["success", "Success"], ["fail", "Fails"], ["unsupported", "Not supported"]] },
   {
     key: "identity",
     label: "BVN / NIN check",
@@ -25,6 +29,7 @@ const OPTIONS: { key: keyof Scenarios; label: string; values: [string, string][]
       ["match", "Match"],
       ["mismatch", "Details don't match"],
       ["not_found", "Not found"],
+      ["unsupported", "ID can't be used"],
       ["duplicate", "Linked to another account"],
       ["provider_down", "Provider down"],
     ],

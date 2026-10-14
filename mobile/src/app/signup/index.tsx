@@ -3,10 +3,11 @@ import { useState } from "react";
 import { View } from "react-native";
 import { PageTitle, Screen } from "@/components/Screen";
 import { Alert, Button, Field, LinkText, Text } from "@/components/ui";
-import { checkEmail } from "@/lib/api";
+import { startSignup } from "@/lib/api";
+import { ROUTES } from "@/lib/store";
 import { isEmail } from "@/lib/validation";
 
-/** Sign-up step 1 of 2: email only. */
+/** Sign-up step 1: email only. A code is sent to confirm it before a password is set. */
 export default function SignUpEmail() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -20,10 +21,10 @@ export default function SignUpEmail() {
     setDuplicate(null);
     if (!isEmail(email)) return;
     setLoading(true);
-    const res = await checkEmail(email.trim());
+    const res = await startSignup(email.trim());
     setLoading(false);
     if (!res.ok) return setDuplicate(res.message);
-    router.push(`/signup/password?email=${encodeURIComponent(email.trim())}`);
+    router.push(ROUTES.verifyEmail as never);
   };
 
   return (

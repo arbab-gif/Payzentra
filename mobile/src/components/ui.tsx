@@ -9,7 +9,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react-native";
-import { forwardRef, useEffect, useState, type ReactNode } from "react";
+import { forwardRef, useEffect, useId, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -69,17 +69,19 @@ export function Text({
 // ---------- Logo & flag ----------
 
 export function Logo({ size = 30, wordmark = true, onDark }: { size?: number; wordmark?: boolean; onDark?: boolean }) {
+  // Unique gradient id: on web, two logos on screen (e.g. a page still in the stack) would otherwise share one.
+  const id = `pz${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
       <Svg width={size} height={size} viewBox="0 0 32 32">
         <Defs>
-          <LinearGradient id="pz" x1="0" y1="0" x2="1" y2="1">
+          <LinearGradient id={id} x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor="#a3b0ff" />
             <Stop offset="1" stopColor="#4f63f0" />
           </LinearGradient>
         </Defs>
-        <Path d="M5 4h8l10 12-10 12H5l10-12z" fill="url(#pz)" />
-        <Path d="M14 4h6l9 12-9 12h-6l9-12z" fill="url(#pz)" opacity={0.55} />
+        <Path d="M5 4h8l10 12-10 12H5l10-12z" fill={`url(#${id})`} />
+        <Path d="M14 4h6l9 12-9 12h-6l9-12z" fill={`url(#${id})`} opacity={0.55} />
       </Svg>
       {wordmark && (
         <Text variant="heading" style={onDark ? { color: "#ffffff" } : undefined}>
@@ -169,13 +171,15 @@ type FieldProps = TextInputProps & {
   error?: string | null;
   /** Error styling without a message under the field (the message is shown by the parent, e.g. a shared row). */
   invalid?: boolean;
+  /** Hide the visual label inside grouped forms (e.g. address) where a section title gives the context. Still read by screen readers. */
+  showLabel?: boolean;
   left?: ReactNode;
   right?: ReactNode;
   mono?: boolean;
 };
 
 export const Field = forwardRef<TextInput, FieldProps>(function Field(
-  { label, hint, error, invalid, left, right, mono, style, onFocus, onBlur, ...rest },
+  { label, hint, error, invalid, showLabel = true, left, right, mono, style, onFocus, onBlur, ...rest },
   ref,
 ) {
   const c = useColors();
@@ -184,10 +188,12 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
   const bad = !!error || !!invalid;
   return (
     <View style={{ gap: 8 }}>
-      {/* Visible label on every field, above a filled input. */}
-      <Text variant="label" style={{ color: bad ? c.danger : c.text }}>
-        {label}
-      </Text>
+      {/* Visible label above a filled input (hidden in grouped forms). */}
+      {showLabel && (
+        <Text variant="label" style={{ color: bad ? c.danger : c.text }}>
+          {label}
+        </Text>
+      )}
       <View
         style={{
           minHeight: 56,

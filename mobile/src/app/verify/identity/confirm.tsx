@@ -1,17 +1,15 @@
 import { router } from "expo-router";
-import { BadgeCheck, Lock, UserX } from "lucide-react-native";
+import { UserX } from "lucide-react-native";
 import { useState } from "react";
 import { View } from "react-native";
 import { Loading, PageTitle, Screen } from "@/components/Screen";
 import { Alert, Button, Card, Divider, StatusHero, Text } from "@/components/ui";
 import { confirmIdentity } from "@/lib/api";
 import { ROUTES, useApp } from "@/lib/store";
-import { useColors } from "@/lib/theme";
 import { toast } from "@/lib/toast";
 import { useGuard } from "@/lib/useGuard";
 
 export default function ConfirmIdentity() {
-  const c = useColors();
   const kyc = useApp((s) => s.kyc);
   const setKyc = useApp((s) => s.setKyc);
   const [loading, setLoading] = useState(false);
@@ -53,11 +51,11 @@ export default function ConfirmIdentity() {
 
   const rows: [string, string][] = [
     ["First name", id.firstName],
-    ["Middle name", id.middleName || "—"],
     ["Last name", id.lastName],
     ["Date of birth", id.dob],
     ["Gender", id.gender],
     ["Phone on record", id.phoneMasked],
+    [kyc.idType ?? "ID", `•••• •••• ${kyc.idNumber.slice(-3)}`],
   ];
 
   const confirm = async () => {
@@ -76,11 +74,7 @@ export default function ConfirmIdentity() {
         </>
       }
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
-        <BadgeCheck size={20} color={c.success} />
-        <Text variant="smallStrong" tone="success">{kyc.idType} found</Text>
-      </View>
-      <PageTitle title="Is this you?" subtitle={`These details come from your ${kyc.idType} record and will be your legal name on Payzentra.`} />
+      <PageTitle title="Is this you?" subtitle={`We fetched these details from your ${kyc.idType} record. Check they're yours. They'll be your legal name on Payzentra.`} />
       <View style={{ gap: 16 }}>
         <Card style={{ padding: 0 }}>
           {rows.map(([k, v], i) => (
@@ -89,7 +83,6 @@ export default function ConfirmIdentity() {
               <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 12 }} accessible accessibilityLabel={`${k}: ${v}, verified`}>
                 <Text variant="small" tone="muted" style={{ flex: 1 }}>{k}</Text>
                 <Text variant="bodyStrong">{v}</Text>
-                <Lock size={14} color={c.subtle} />
               </View>
             </View>
           ))}

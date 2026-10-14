@@ -16,17 +16,17 @@ npx expo start
 
 ## Journey
 
-Welcome hero (story-style slides) → Your email → Create password → Verify email (6-digit code) → KYC intro → the 4 steps (1 name, phone + date of birth · 2 BVN or NIN + "Is this you?" · 3 selfie · 4 home address & submit) → Verified / In review / Rejected → Home (balance, quick actions, notices, accounts, recent activity, 5-tab nav; only Home is built). Demo controls → "Home" switches between an account with history and a new, empty one.
+**New customer:** Welcome → Your email → Verify email (6-digit code, with expiry and resend) → Create password + confirm (live mismatch check) → Set a 6-digit **unlock code** and confirm it → optional Face ID / fingerprint → Home. Identity verification is not part of sign-up: a newly registered Home says "Wallet not active yet" (no balance figure) with a small banner to verify, and every money action is locked until verified.
 
-Also: Welcome back (returning user on this phone), Log in, Password reset. Progress saves automatically after every step, so closing the app and logging back in resumes where you left off.
+**Identity verification** (from the Home banner or Profile, 3 steps): BVN or NIN (consent; NIN- and BVN-specific checking; mismatch, not found, unsupported ID, duplicate and provider-down states) → review the details returned from the record → live selfie (camera only) → home address → Verified / In review / Unsuccessful.
 
-Authenticator (TOTP) set-up and recovery codes are no longer part of onboarding — the screens (`src/app/signup/secure.tsx`, `recovery-codes.tsx`) are kept for a future Settings page. Once a customer turns it on, login asks for the authenticator code.
+**Returning customer on this phone:** Unlock screen — the 6-digit code or Face ID / fingerprint, no email or password. Wrong code shows attempts left; 5 wrong attempts sign out of this device. "Forgot unlock code?" asks for the password, then sets a new code. A timed-out session refreshes quietly after unlocking; an expired one shows "Your session has ended" and asks for the password or passkey.
 
-## Demo controls
+**New device or signed out:** Welcome back / Log in with email + password or a passkey. A device we haven't seen gets an email code check, then sets its own unlock code. Optional authenticator-app sign-in still applies once turned on.
 
-There is no real backend yet. `src/lib/api.ts` simulates every API call. **Long-press the empty top bar** on any step (or the logo on the welcome screen) to choose outcomes (duplicate email, wrong password, BVN/NIN mismatch / not found / duplicate / provider down, selfie failures, verified / in review / rejected), switch light/dark mode, or start over.
+**Home:** labelled balances (available balance, money on hold, indicative crypto value), quick actions, recent activity (with a reversed transfer that says the money was returned), updates and a security recommendation. Tabs: Home, Wallet, Crypto, Payments, Cards (only Home is built). The avatar opens **Profile** (verification level, account number, unlock code, Face ID, passkey, two-step sign-in, transaction PIN — kept separate from the unlock code — appearance, log out); the clock icon and "See all" open **Activity** (grouped by day, with filters).
 
-Test codes: email `123456` (expired `111111`); authenticator any 6 digits (`000000` = wrong); BVN/NIN any 11 digits. The selfie uses a simulated camera by default — switch to the real camera in Demo controls.
+The **Web app** tab in the browser preview shows the same app as a desktop layout with a sidebar.
 
 ## Structure
 

@@ -1,55 +1,53 @@
-import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { PasswordRules } from "@/components/PasswordRules";
-import { PageTitle, Screen } from "@/components/Screen";
-import { Alert, Button, Card, Checkbox, LinkText, PasswordField, Text } from "@/components/ui";
-import { register } from "@/lib/api";
-import { ROUTES } from "@/lib/store";
+import { Loading, PageTitle, Screen } from "@/components/Screen";
+import { Button, Card, Checkbox, PasswordField, Text } from "@/components/ui";
+import { setPassword as savePassword } from "@/lib/api";
+import { ROUTES, useApp } from "@/lib/store";
 import { toast } from "@/lib/toast";
-import { isEmail, passwordOk } from "@/lib/validation";
+import { useGuard } from "@/lib/useGuard";
+import { passwordOk } from "@/lib/validation";
 
-/** Sign-up step 2 of 2: password + terms, then the account is created. */
+/** Sign-up step 3: set and confirm a password (the email is already verified). */
 export default function SignUpPassword() {
-  const { email = "" } = useLocalSearchParams<{ email?: string }>();
+  const email = useApp((s) => s.account?.email ?? "");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [terms, setTerms] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const allowed = useGuard(ROUTES.password, loading);
 
-  // Opened without an email (e.g. a refreshed tab): start sign-up again.
-  if (!isEmail(email)) return <Redirect href="/signup" />;
+  if (!allowed) return <Loading />;
 
   const legal = () => toast({ tone: "info", title: "Legal documents", body: "In the live app this opens the current Terms of Use and Privacy Policy." });
 
+  const passwordError = !submitted ? null : !password ? "Create a password." : !passwordOk(password) ? "Your password doesn't meet all the requirements below." : null;
+  // Mismatch shows as soon as the confirmation is as long as the password, not only on submit.
+  const mismatch = confirm.length > 0 && (confirm.length >= password.length || submitted) && confirm !== password;
+  const confirmError = submitted && !confirm ? "Confirm your password." : mismatch ? "Passwords don't match." : null;
+
   const submit = async () => {
     setSubmitted(true);
-    setError(null);
-    if (!passwordOk(password) || !terms) return;
+    if (!passwordOk(password) || confirm !== password || !terms) return;
     setLoading(true);
-    const res = await register(email, password);
-    setLoading(false);
-    if (!res.ok) return setError(res.message);
-    router.replace(ROUTES.verifyEmail as never);
+    await savePassword(password);
+    router.replace(ROUTES.setUnlockCode as never);
   };
 
   return (
-    <Screen back footer={<Button title="Create account" loading={loading} onPress={submit} />}>
+    <Screen footer={<Button title="Continue" loading={loading} onPress={submit} />}>
       <PageTitle
         title="Create a password"
         subtitle={
           <Text tone="muted">
-            For <Text variant="bodyStrong">{email}</Text>
+            For <Text variant="bodyStrong">{email}</Text>. You&apos;ll use it to log in on a new device.
           </Text>
         }
       />
       <View style={{ gap: 16 }}>
-        {error && (
-          <Alert tone="warning" title="You may already have an account" action={<LinkText onPress={() => router.replace("/login")}>Log in instead</LinkText>}>
-            {error}
-          </Alert>
-        )}
         <PasswordField
           label="Password"
           placeholder="Create a strong password"
@@ -57,12 +55,22 @@ export default function SignUpPassword() {
           onChangeText={setPassword}
           textContentType="newPassword"
           autoComplete="new-password"
-          error={submitted && !password ? "Create a password." : submitted && !passwordOk(password) ? "Your password doesn't meet all the requirements below." : null}
+          error={passwordError}
           autoFocus
         />
         <Card>
           <PasswordRules value={password} showErrors={submitted} />
         </Card>
+        <PasswordField
+          label="Confirm password"
+          placeholder="Type it again"
+          value={confirm}
+          onChangeText={setConfirm}
+          textContentType="newPassword"
+          autoComplete="new-password"
+          error={confirmError}
+          hint={confirm && confirm === password && passwordOk(password) ? "Passwords match." : undefined}
+        />
         <Checkbox
           label="I agree to the Terms of Use and Privacy Policy, and confirm I'm 18 or older"
           checked={terms}

@@ -10,7 +10,10 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { useEffect, useState } from "react";
+import { SplashScreen } from "@/components/Brand";
 import { DemoSheet, Toaster } from "@/components/DemoSheet";
+import { PreviewTabs } from "@/components/PreviewTabs";
 import { useApp } from "@/lib/store";
 import { useColors } from "@/lib/theme";
 import { useHydrated } from "@/lib/useGuard";
@@ -32,17 +35,28 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({ InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold, InterTight_700Bold, InterTight_800ExtraBold });
   const hydrated = useHydrated();
   const theme = useApp((s) => s.theme);
+  const viewMode = useApp((s) => s.viewMode);
   const c = useColors();
+  // Show the launch splash for at least a moment, even when everything loads instantly.
+  const [splashDone, setSplashDone] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSplashDone(true), 1100);
+    return () => clearTimeout(t);
+  }, []);
 
-  if (!fontsLoaded || !hydrated) return <View style={{ flex: 1, backgroundColor: c.bg }} />;
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: "#000000" }} />;
+  if (!hydrated || !splashDone) return <SplashScreen />;
+
+  // In a browser: "Mobile app" previews the app at phone width; "Web app" uses the full window.
+  const phoneFrame = Platform.OS === "web" && viewMode === "mobile";
 
   return (
     <SafeAreaProvider>
       <StatusBar style={theme === "dark" ? "light" : "dark"} />
-      {/* In a desktop browser, show the app at phone width so it previews like a device. */}
+      <PreviewTabs />
       <View style={{ flex: 1, backgroundColor: Platform.OS === "web" ? (theme === "dark" ? "#000000" : "#dfe2e8") : c.bg, alignItems: "center" }}>
-        <View style={{ flex: 1, width: "100%", maxWidth: Platform.OS === "web" ? 430 : undefined, backgroundColor: c.bg, overflow: "hidden" }}>
-          <Stack screenOptions={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: c.bg } }} />
+        <View style={{ flex: 1, width: "100%", maxWidth: phoneFrame ? 430 : undefined, backgroundColor: c.bg, overflow: "hidden" }}>
+          <Stack screenOptions={{ headerShown: false, animation: Platform.OS === "web" ? "none" : "slide_from_right", contentStyle: { backgroundColor: c.bg } }} />
           <Toaster />
           <DemoSheet />
         </View>

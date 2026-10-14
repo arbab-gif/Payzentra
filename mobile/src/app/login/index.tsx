@@ -3,6 +3,7 @@ import { Mail } from "lucide-react-native";
 import { useState } from "react";
 import { View } from "react-native";
 import { PageTitle, Screen } from "@/components/Screen";
+import { NewDeviceCheck, PasskeyOption } from "@/components/SignIn";
 import { Alert, Button, Field, LinkText, PasswordField, Text } from "@/components/ui";
 import { login } from "@/lib/api";
 import { nextRoute, useApp } from "@/lib/store";
@@ -18,6 +19,10 @@ export default function Login() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [deviceCheck, setDeviceCheck] = useState(false);
+  const finish = () => router.replace(nextRoute(useApp.getState()) as never);
+
+  if (deviceCheck) return <NewDeviceCheck email={email.trim()} onDone={finish} onCancel={() => setDeviceCheck(false)} />;
 
   const submit = async () => {
     setSubmitted(true);
@@ -27,7 +32,8 @@ export default function Login() {
     const res = await login(email.trim(), password);
     setLoading(false);
     if (!res.ok) return setError(res);
-    router.replace(nextRoute(useApp.getState()) as never);
+    if (res.data.deviceCheck) return setDeviceCheck(true);
+    finish();
   };
 
   return (
@@ -36,6 +42,7 @@ export default function Login() {
       footer={
         <>
           <Button title="Log in" loading={loading} onPress={submit} />
+          <PasskeyOption onSignedIn={finish} onError={setError} />
           <View style={{ flexDirection: "row", justifyContent: "center", gap: 6 }}>
             <Text variant="small" tone="muted">New to Payzentra?</Text>
             <LinkText onPress={() => router.replace("/signup")}>Create an account</LinkText>
@@ -43,12 +50,12 @@ export default function Login() {
         </>
       }
     >
-      <PageTitle title="Log in" subtitle="Enter your email and password." />
+      <PageTitle title="Log in" subtitle="Enter your email and password, or use a passkey if you've set one up." />
       <View style={{ gap: 18 }}>
         {error && (
           <Alert
             tone={error.code === "LOCKED" ? "warning" : "danger"}
-            title={error.code === "LOCKED" ? "Sign-in paused" : "Couldn't log you in"}
+            title={error.code === "LOCKED" ? "Sign-in paused" : error.code.startsWith("PASSKEY") || error.code === "UNSUPPORTED" ? "Passkey sign-in didn't work" : "Couldn't log you in"}
             action={error.code === "LOCKED" ? <LinkText onPress={() => router.push(`/forgot-password?email=${encodeURIComponent(email)}`)}>Reset password</LinkText> : undefined}
           >
             {error.message}

@@ -1,18 +1,18 @@
 import { router } from "expo-router";
-import { CloudOff, Fingerprint, Landmark, Phone, ShieldCheck, UserX, UsersRound, type LucideIcon } from "lucide-react-native";
+import { CloudOff, FileX, ShieldCheck, UserX, UsersRound } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { Loading, PageTitle, Screen } from "@/components/Screen";
-import { Alert, Button, Card, Checkbox, Field, StatusHero, Text } from "@/components/ui";
+import { Alert, Button, Checkbox, Field, StatusHero, Text } from "@/components/ui";
 import { lookupIdentity } from "@/lib/api";
 import { ROUTES, useApp, type IdType } from "@/lib/store";
 import { radius, useColors } from "@/lib/theme";
 import { toast } from "@/lib/toast";
 import { useGuard } from "@/lib/useGuard";
 
-const ID_OPTIONS: { type: IdType; title: string; body: string; ussd: string; Icon: LucideIcon }[] = [
-  { type: "BVN", title: "Bank Verification Number", body: "11 digits, linked to all your bank accounts.", ussd: "*565*0#", Icon: Landmark },
-  { type: "NIN", title: "National Identification Number", body: "11 digits, on your NIN slip or NIMC app.", ussd: "*346#", Icon: Fingerprint },
+const ID_OPTIONS: { type: IdType; title: string; body: string }[] = [
+  { type: "BVN", title: "Bank Verification Number", body: "11 digits, linked to all your bank accounts." },
+  { type: "NIN", title: "National Identification Number", body: "11 digits, on your NIN slip or NIMC app." },
 ];
 
 type Failure = { code: string; message: string };
@@ -72,12 +72,29 @@ export default function Identity() {
         center
         footer={
           <>
-            <Button title="Check my details" onPress={() => router.replace(ROUTES.details as never)} />
-            <Button title={`Try with ${other} instead`} variant="secondary" onPress={switchType} />
+            <Button title={`Try with ${other} instead`} onPress={switchType} />
+            <Button title="Enter a different number" variant="secondary" onPress={() => { setFailure(null); setNumber(""); setSubmitted(false); }} />
           </>
         }
       >
-        <StatusHero tone="warning" icon={UserX} title="Your details don't match" body={`${failure.message} Check you entered the phone number and date of birth registered with your ${idType}.`} />
+        <StatusHero tone="warning" icon={UserX} title="These details don't match" body={`${failure.message} If it's your own ${idType}, contact support and we'll help.`} />
+      </Screen>
+    );
+  }
+
+  if (failure?.code === "UNSUPPORTED_DOCUMENT") {
+    return (
+      <Screen
+        step="id"
+        center
+        footer={
+          <>
+            <Button title={`Use ${other} instead`} onPress={switchType} />
+            <Button title="Enter a different number" variant="secondary" onPress={() => { setFailure(null); setNumber(""); setSubmitted(false); }} />
+          </>
+        }
+      >
+        <StatusHero tone="warning" icon={FileX} title="We can't use this ID" body={failure.message} />
       </Screen>
     );
   }
@@ -147,21 +164,9 @@ export default function Identity() {
           })}
         </View>
         {/* What the selected ID is */}
-        <View style={{ flexDirection: "row", gap: 14, padding: 16, borderRadius: radius.lg, backgroundColor: c.surface }}>
-          <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: c.primarySoft, alignItems: "center", justifyContent: "center" }}>
-            <option.Icon size={20} color={c.primary} />
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Text variant="bodyStrong">{option.title}</Text>
-            </View>
-            <Text variant="small" tone="muted">{option.body}</Text>
-            {idType === "BVN" && (
-              <View style={{ alignSelf: "flex-start", marginTop: 6, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: c.successSoft }}>
-                <Text variant="caption" tone="success">Fastest</Text>
-              </View>
-            )}
-          </View>
+        <View style={{ gap: 2 }}>
+          <Text variant="bodyStrong">{option.title}</Text>
+          <Text variant="small" tone="muted">{option.body}</Text>
         </View>
 
         {failure?.code === "NOT_FOUND" && <Alert tone="danger" title="Number not found">{failure.message}</Alert>}
@@ -177,26 +182,13 @@ export default function Identity() {
           keyboardType="number-pad"
           maxLength={11}
           mono
-          right={<Text variant="caption" tone="muted">{number.length}/11</Text>}
           error={numberError}
         />
-        <Pressable
-          onPress={() => Linking.openURL(`tel:${encodeURIComponent(option.ussd)}`).catch(() => {})}
-          accessibilityRole="button"
-          accessibilityLabel={`Dial ${option.ussd} to get your ${idType}`}
-          style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: -8 }}
-        >
-          <Phone size={16} color={c.primary} />
-          <Text variant="small" tone="muted">
-            Don&apos;t know it? <Text variant="smallStrong" tone="primary">Dial {option.ussd}</Text> from your registered line
-          </Text>
-        </Pressable>
 
-        <Card>
-          <Checkbox checked={consent} onChange={setConsent} error={submitted && !consent ? "We need your consent to check your details." : null}>
-            {`I consent to Payzentra checking my ${idType}, name, date of birth, phone number and photo with an approved identity provider to verify who I am, as described in the Privacy Policy.`}
-          </Checkbox>
-        </Card>
+        {/* Explicit consent is required before the identity check (kept from the spec; not shown in the Figma frame). */}
+        <Checkbox checked={consent} onChange={setConsent} error={submitted && !consent ? "We need your consent to check your details." : null}>
+          {`I consent to Payzentra checking my ${idType}, name, date of birth, phone number and photo with an approved identity provider to verify who I am, as described in the Privacy Policy.`}
+        </Checkbox>
       </View>
     </Screen>
   );
@@ -204,7 +196,10 @@ export default function Identity() {
 
 function Checking({ idType }: { idType: IdType }) {
   const c = useColors();
-  const steps = [`Connecting to ${idType} service`, "Matching your details", "Securing your record"];
+  const steps =
+    idType === "NIN"
+      ? ["Connecting to the NIN service", "Finding your NIN record", "Fetching your name and date of birth"]
+      : ["Connecting to the BVN service", "Finding your bank verification record", "Fetching your name and date of birth"];
   const [i, setI] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setI((x) => Math.min(x + 1, 2)), 750);
@@ -212,7 +207,7 @@ function Checking({ idType }: { idType: IdType }) {
   }, []);
   return (
     <View accessibilityLiveRegion="polite">
-      <StatusHero tone="primary" icon={ShieldCheck} title={`Checking your ${idType}`} body="This usually takes a few seconds. Please keep the app open." pulse />
+      <StatusHero tone="primary" icon={ShieldCheck} title={`Checking your ${idType}`} body={idType === "NIN" ? "We're fetching your record from the national identity database. This usually takes a few seconds." : "We're fetching your record from your bank verification details. This usually takes a few seconds."} pulse />
       <View style={{ marginTop: 28, gap: 14, alignSelf: "center" }}>
         {steps.map((s, idx) => (
           <View key={s} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>

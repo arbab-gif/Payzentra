@@ -19,6 +19,8 @@ npx expo start
 
 Press `w` to open it in a browser, or scan the QR code with Expo Go. All data is simulated: long-press the empty header area (or the greeting on Home) to open Demo controls and switch scenarios.
 
+In the browser, a **Preview** bar at the top switches between **Mobile app** (the phone app at phone width) and **Web app** (the desktop web app: split-screen sign-up and verification with a step tracker, and a Home dashboard with a sidebar). Both share the same screens, data and logic.
+
 ## Design
 
 The final screens, in dark and light mode, live in the Payzentra Figma file on the "Final Design" page.
